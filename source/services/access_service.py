@@ -30,7 +30,9 @@ class AccessService(BaseService):
     # ------------------------------------------------------------------ профиль
     async def ensure_user(self, user_id: int, username: str = "") -> UserOrm:
         async with self._uow:
-            user = await self._uow.users.upsert_user(user_id, {"username": username or ""})
+            user = await self._uow.users.upsert_user(
+                user_id, {"username": username or ""}
+            )
             if username:
                 await self._uow.users.set_username(user_id, username)
             return user
@@ -47,7 +49,11 @@ class AccessService(BaseService):
         """Вернуть (показывать_срок, срок) для текста бана."""
         if not user or not user.unsubscribed_at:
             return False, ""
-        left_ms = user.unsubscribed_at + RESUBSCRIBE_BAN_DAYS * 86400 * 1000 - time.time() * 1000
+        left_ms = (
+            user.unsubscribed_at
+            + RESUBSCRIBE_BAN_DAYS * 86400 * 1000
+            - time.time() * 1000
+        )
         days = int(left_ms / (86400 * 1000)) + 1
         if days <= 0:
             return False, ""
@@ -60,11 +66,11 @@ class AccessService(BaseService):
             return False
         if not user.is_active or user.banned:
             return False
-        if user.expiry_at and user.expiry_at < time.time() * 1000:
-            return False
-        return True
+        return not (user.expiry_at and user.expiry_at < time.time() * 1000)
 
-    async def issue_key(self, user_id: int, username: str = "") -> tuple[UserOrm, PanelClient]:
+    async def issue_key(
+        self, user_id: int, username: str = ""
+    ) -> tuple[UserOrm, PanelClient]:
         user = await self.ensure_user(user_id, username)
         client = await self.vpn.issue_key(user_id, username)
         async with self._uow:
@@ -74,10 +80,14 @@ class AccessService(BaseService):
                 client_uuid=client.uuid,
                 vless_link=(client.links or [""])[0],
                 links=list(client.links or []),
-                total_bytes=int(getattr(client, "total_gb", 0) or user.total_bytes or 0),
+                total_bytes=int(
+                    getattr(client, "total_gb", 0) or user.total_bytes or 0
+                ),
                 expiry_at=int(getattr(client, "expiry_time", 0) or user.expiry_at or 0),
             )
-        logger.info(f"ключ выдан: {user_id} ({client.email}), ссылок: {len(client.links or [])}")
+        logger.info(
+            f"ключ выдан: {user_id} ({client.email}), ссылок: {len(client.links or [])}"
+        )
         return await self.get_user(user_id) or user, client
 
     async def refresh_key(self, user_id: int) -> dict:
@@ -92,7 +102,9 @@ class AccessService(BaseService):
         expiry = int(result.get("expiry") or 0)
         if result.get("ok") and expiry:
             async with self._uow:
-                await self._uow.users.update(user_id, {"expiry_at": expiry, "is_active": True})
+                await self._uow.users.update(
+                    user_id, {"expiry_at": expiry, "is_active": True}
+                )
         return result
 
     async def links_of(self, user: UserOrm | None) -> list[str]:
@@ -110,7 +122,12 @@ class AccessService(BaseService):
         expiry = "—"
         if user.expiry_at:
             expiry = datetime.fromtimestamp(user.expiry_at / 1000).strftime("%d.%m.%Y")
-        return {"used": f"{used_gb:.1f}", "total": f"{total_gb:.0f}", "expiry": expiry, "limit": LIMIT_IP}
+        return {
+            "used": f"{used_gb:.1f}",
+            "total": f"{total_gb:.0f}",
+            "expiry": expiry,
+            "limit": LIMIT_IP,
+        }
 
     async def issue_xhttp(self, user_id: int) -> dict | None:
         return await self.vpn.issue_xhttp(user_id)
@@ -151,7 +168,9 @@ class AccessService(BaseService):
     # ------------------------------------------------------------------ бан/подписка
     async def ban(self, user_id: int, reason: str = "") -> None:
         async with self._uow:
-            await self._uow.users.set_banned(user_id, True, reason, int(time.time() * 1000))
+            await self._uow.users.set_banned(
+                user_id, True, reason, int(time.time() * 1000)
+            )
 
     async def unban(self, user_id: int) -> None:
         async with self._uow:
@@ -163,7 +182,12 @@ class AccessService(BaseService):
 
     # ------------------------------------------------------------------ поддержка/админка
     async def save_support_message(
-        self, telegram_id: int, username: str, full_name: str, text: str, created_at: int
+        self,
+        telegram_id: int,
+        username: str,
+        full_name: str,
+        text: str,
+        created_at: int,
     ) -> None:
         async with self._uow:
             await self._uow.support.add(
@@ -221,4 +245,6 @@ class AccessService(BaseService):
 
     async def set_expiry(self, user_id: int, expiry_at: int) -> None:
         async with self._uow:
-            await self._uow.users.update(user_id, {"expiry_at": expiry_at, "is_active": True})
+            await self._uow.users.update(
+                user_id, {"expiry_at": expiry_at, "is_active": True}
+            )

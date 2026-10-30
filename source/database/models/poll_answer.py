@@ -16,4 +16,6 @@ class PollAnswerOrm(Base, TableNameMixin):
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     username: Mapped[str | None] = mapped_column(String(128))
     full_name: Mapped[str | None] = mapped_column(String(256))
-    option_ids: Mapped[str | None] = mapped_column(Text, comment="JSON-массив выбранных вариантов")
+    option_ids: Mapped[str | None] = mapped_column(
+        Text, comment="JSON-массив выбранных вариантов"
+    )

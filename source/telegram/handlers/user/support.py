@@ -28,8 +28,20 @@ from source.utils import I18n
 user_support_router = Router(name=__name__)
 
 NOISE = {
-    "/start", "/vpn", "/menu", "/help", "/donate",
-    "привет", "здравствуйте", "спасибо", "ок", "ok", "hello", "hi", "+", "?",
+    "/start",
+    "/vpn",
+    "/menu",
+    "/help",
+    "/donate",
+    "привет",
+    "здравствуйте",
+    "спасибо",
+    "ок",
+    "ok",
+    "hello",
+    "hi",
+    "+",
+    "?",
 }
 
 
@@ -55,7 +67,9 @@ async def handle_captcha(
     answer = (message.text or "").strip()
     if expected and answer == expected:
         await state.clear()
-        await send_key(message, message.from_user.id, access, i18n, state, skip_captcha=True)
+        await send_key(
+            message, message.from_user.id, access, i18n, state, skip_captcha=True
+        )
         return
     await message.answer(await i18n(message.from_user.id, "captcha-wrong"))
 
@@ -97,7 +111,11 @@ async def support_fallback(
     rule = autoreply_match(user.id, text)
     if rule:
         if rule == "howto":
-            await message.answer(await i18n(user.id, "help-title") + "\n\n" + await i18n(user.id, "help-short"))
+            await message.answer(
+                await i18n(user.id, "help-title")
+                + "\n\n"
+                + await i18n(user.id, "help-short")
+            )
         elif rule == "link":
             await message.answer(await i18n(user.id, "autoreply-link"))
         else:
