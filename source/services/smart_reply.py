@@ -6,6 +6,7 @@
 
 Прокси: если задан SMART_PROXY (например socks5h://127.0.0.1:1080), запрос идёт через него.
 """
+import contextlib
 import json
 import logging
 import os
@@ -75,10 +76,8 @@ def _curl_json(url: str, payload: dict, headers=None, timeout: int = 30):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
     finally:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(path)
-        except OSError:
-            pass
     if p.returncode != 0:
         raise RuntimeError(f"curl rc={p.returncode}: {p.stderr.strip()[:200]}")
     return json.loads(p.stdout)
@@ -185,7 +184,7 @@ def answer(question: str, facts: str = "") -> str | None:
     if not question or len(question) < 2:
         return None
     for provider in _providers():
-        for attempt in (1, 2):
+        for _attempt in (1, 2):
             try:
                 text = provider(question, facts)
             except Exception as e:
@@ -214,10 +213,8 @@ def build_facts(user: dict | None, node_ok: bool | None = None) -> str:
     parts.append(f"доступ выдан: {'да' if user.get('is_active') else 'нет'}")
     exp = user.get("expiry_at")
     if exp:
-        try:
+        with contextlib.suppress(Exception):
             parts.append("действует до " + datetime.datetime.fromtimestamp(exp / 1000).strftime("%d.%m.%Y"))
-        except Exception:
-            pass
     used = (user.get("used_bytes") or 0) / (1024 ** 3)
     total = (user.get("total_bytes") or 0) / (1024 ** 3)
     if total:

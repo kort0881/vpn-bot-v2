@@ -82,7 +82,7 @@ class PanelSession:
     """
 
     def __init__(self, base_url: str = None, api_token: str = None, inbound_ids: list = None):
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._base_url = (base_url or PANEL_URL).rstrip("/")
         self._api_token = api_token if api_token is not None else PANEL_API_TOKEN
         self._inbound_ids = inbound_ids if inbound_ids is not None else INBOUND_IDS
@@ -117,28 +117,27 @@ class PanelSession:
         last_err: Exception = None
         for attempt in range(3):
             try:
-                async with self._sem:
-                    async with self._session.request(
-                        method, self._url(path), headers=headers, **kwargs
-                    ) as resp:
-                        if resp.status == 401 or resp.status == 403:
-                            text = await resp.text()
-                            raise PanelAuthError(
-                                f"Auth failed (HTTP {resp.status}): {text[:200]}"
-                            )
-                        if resp.status != 200:
-                            text = await resp.text()
-                            raise PanelAPIError(
-                                f"HTTP {resp.status} on {method} {path}: {text[:300]}"
-                            )
-                        data = await resp.json()
+                async with self._sem, self._session.request(
+                    method, self._url(path), headers=headers, **kwargs
+                ) as resp:
+                    if resp.status == 401 or resp.status == 403:
+                        text = await resp.text()
+                        raise PanelAuthError(
+                            f"Auth failed (HTTP {resp.status}): {text[:200]}"
+                        )
+                    if resp.status != 200:
+                        text = await resp.text()
+                        raise PanelAPIError(
+                            f"HTTP {resp.status} on {method} {path}: {text[:300]}"
+                        )
+                    data = await resp.json()
                 if not data.get("success"):
                     msg = data.get("msg", "unknown error")
                     raise PanelAPIError(f"API error on {method} {path}: {msg}")
                 return data
-            except (PanelAuthError,) as e:
+            except PanelAuthError:
                 raise  # auth errors are permanent — no retry
-            except (PanelAPIError, aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, PanelAPIError, aiohttp.ClientError) as e:
                 last_err = e
                 if attempt < 2:
                     await asyncio.sleep(1 + attempt)  # 1s, 2s
@@ -268,7 +267,7 @@ class PanelSession:
             out.append(link)
         return out
 
-    async def _get_client_uuid(self, email: str) -> Optional[str]:
+    async def _get_client_uuid(self, email: str) -> str | None:
         """Panel 3.6.0 may assign its own client id on add, ignoring ours.
         Fetch the real id from the panel so links/auth match."""
         result = await self._request("GET", "/panel/api/inbounds/list")
@@ -397,7 +396,7 @@ class PanelSession:
                     _m = _l + "&fp=safari"
                 _base, _, _tag = _m.partition("#")
                 _tag = (_tag or "proxy").replace(" ", "%20")
-                mobile.append("%s#%s%%20(мобильный%%2C%%20safari)" % (_base, _tag))
+                mobile.append(f"{_base}#{_tag}%20(мобильный%2C%20safari)")
         links = links + mobile
         return links
 
@@ -503,7 +502,7 @@ class PanelSession:
                 "total": after["totalGB"], "enable": after["enable"],
                 "reason": "ok" if same else "state_changed"}
 
-    async def get_client_traffic(self, email: str) -> Optional[dict]:
+    async def get_client_traffic(self, email: str) -> dict | None:
         try:
             result = await self._request(
                 "GET", f"/panel/api/clients/traffic/{email}"
@@ -553,7 +552,7 @@ class PanelSession:
     # Отдельный инбаунд на финке (порт 2096, WS+TLS, path /bonus-ws).
     # Клиент живёт ТОЛЬКО в этом инбаунде и не пересекается с базовым ключом.
 
-    async def add_vip_client(self, tg_id: int) -> Optional[dict]:
+    async def add_vip_client(self, tg_id: int) -> dict | None:
         """Создать/переиспользовать VIP-клиента. Возвращает {'email','uuid','link'}."""
         client_uuid = str(uuid.uuid4())
         email = f"uv{tg_id}"
@@ -585,11 +584,11 @@ class PanelSession:
         link = self._build_vip_link(real_uuid, email)
         return {"email": email, "uuid": real_uuid, "link": link}
 
-    async def add_vip_client_direct(self, tg_id: int) -> Optional[dict]:
+    async def add_vip_client_direct(self, tg_id: int) -> dict | None:
         """Обёртка: тот же результат, но без обращения к RU-панели."""
         return await self.add_vip_client(tg_id)
 
-    async def refresh_vip_link(self, tg_id: int) -> Optional[str]:
+    async def refresh_vip_link(self, tg_id: int) -> str | None:
         """Пересобрать ссылку VIP-клиента (для повторного показа)."""
         email = f"uv{tg_id}"
         real_uuid = await self._get_client_uuid(email)
@@ -611,7 +610,7 @@ class PanelSession:
             logger.error(f"VIP enable={enable} failed for {email}: {e}")
             return False
 
-    async def get_vip_traffic(self, tg_id: int) -> Optional[float]:
+    async def get_vip_traffic(self, tg_id: int) -> float | None:
         """Трафик VIP-клиента в ГБ (для инфо)."""
         try:
             r = await self._request("GET", f"/panel/api/clients/traffic/insider_{tg_id}")
@@ -621,35 +620,25 @@ class PanelSession:
         except PanelAPIError:
             return None
 
-    async def add_sel_client(self, tg_id: int) -> Optional[dict]:
+    async def add_sel_client(self, tg_id: int) -> dict | None:
         """Создать/переиспользовать клиента канала Selectel 3 ТБ.
         Возвращает {'email','uuid','link'}. Работает на панели Selectel."""
         client_uuid = str(uuid.uuid4())
         email = f"us{tg_id}"
-        payload = {
-            "client": {
-                "email": email,
-                "uuid": client_uuid,
-                "password": client_uuid,
-                "flow": "",
-                "limitIp": LIMIT_IP,
-                "totalGB": SEL_TOTAL_BYTES,
-                "expiryTime": int(time.time() * 1000) + EXPIRE_MS,
-                "enable": True,
-                "tgId": int(tg_id),
-            },
-            "inboundIds": [SEL_INBOUND_ID],
-        }
         # Выдача через туннель 127.0.0.1:18090 -> DE -> Selectel /issue/<tg>.
         # Бот на финке не видит Selectel напрямую (ТСПУ), туннель решает это.
         try:
             import aiohttp as _aio
             import ssl as _ssl
             conn = _aio.TCPConnector(ssl=False)
-            async with _aio.ClientSession(connector=conn) as _s:
-                async with _s.get(f"{SEL_ISSUE_URL}/issue/{tg_id}",
-                                  timeout=_aio.ClientTimeout(total=25)) as resp:
-                    data = await resp.json()
+            async with (
+                _aio.ClientSession(connector=conn) as _s,
+                _s.get(
+                    f"{SEL_ISSUE_URL}/issue/{tg_id}",
+                    timeout=_aio.ClientTimeout(total=25),
+                ) as resp,
+            ):
+                data = await resp.json()
             if data.get("ok") and data.get("link"):
                 logger.info(f"SEL client {email} issued via tunnel")
                 return {"email": data.get("email", email), "uuid": data.get("uuid", client_uuid),
@@ -689,7 +678,7 @@ class PanelSession:
 
     # ========================================================
 
-    async def get_inbound_info(self) -> Optional[dict]:
+    async def get_inbound_info(self) -> dict | None:
         """Get info about the first configured inbound."""
         if not self._inbound_ids:
             return None
@@ -702,7 +691,7 @@ class PanelSession:
             logger.error(f"Error getting inbound info: {e}")
             return None
 
-    async def add_cascade_client(self, tg_id: int, username: str) -> Optional[PanelClient]:
+    async def add_cascade_client(self, tg_id: int, username: str) -> PanelClient | None:
         """
         Create a per-user client on the RU panel (cascade entry) and build
         its links: WS-cascade (default) + REALITY :2086 (yandex-маска, для белых списков).
