@@ -8,6 +8,8 @@ from ..models import StatOrm
 from .base import AbstractRepository
 
 
+
+
 class StatRepository(AbstractRepository[StatOrm, str]):
     model = StatOrm
 

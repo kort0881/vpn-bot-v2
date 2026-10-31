@@ -35,15 +35,12 @@ async def start_polling():
     dp.shutdown.register(container.close)
 
     from source.config.panel import RENEWAL_ENABLED as renewal_enabled
-
     renewal_task = None
     if renewal_enabled:
         renewal_task = asyncio.create_task(renewal_loop(bot, container))
         logger.info("фоновая задача продления подписок запущена")
     else:
-        logger.warning(
-            "цикл продления ВЫКЛЮЧЕН (RENEWAL_ENABLED=0) — включать только после переключения"
-        )
+        logger.warning("цикл продления ВЫКЛЮЧЕН (RENEWAL_ENABLED=0) — включать только после переключения")
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)

@@ -88,10 +88,7 @@ async def send_key(
         await message.answer(await i18n(user_id, "error", error=str(exc)[:200]))
         return
 
-    await message.answer(
-        await build_keys_text(access, i18n, user),
-        reply_markup=await keys_kb(i18n, user_id),
-    )
+    await message.answer(await build_keys_text(access, i18n, user), reply_markup=await keys_kb(i18n, user_id))
 
 
 @user_keys_router.callback_query(F.data == "get_key")
@@ -108,29 +105,23 @@ async def get_key(
 
 @user_keys_router.callback_query(F.data == "my_key")
 @aiogram_inject
-async def my_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def my_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
     user = await access.get_user(user_id)
     if not access.has_active_key(user):
         await callback.message.edit_text(
-            await i18n(user_id, "my-key-empty"),
-            reply_markup=await my_key_empty_kb(i18n, user_id),
+            await i18n(user_id, "my-key-empty"), reply_markup=await my_key_empty_kb(i18n, user_id)
         )
         return
     await callback.message.edit_text(
-        await build_keys_text(access, i18n, user),
-        reply_markup=await keys_kb(i18n, user_id),
+        await build_keys_text(access, i18n, user), reply_markup=await keys_kb(i18n, user_id)
     )
 
 
 @user_keys_router.callback_query(F.data == "refresh_key")
 @aiogram_inject
-async def refresh_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def refresh_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     user = await access.get_user(user_id)
     if not access.has_active_key(user):
@@ -143,9 +134,7 @@ async def refresh_key(
 
     if result.get("ok"):
         when = datetime.now().strftime("%H:%M:%S")
-        text = await i18n(
-            user_id, "refresh-ok", time=when, channels=result.get("panel", "RU")
-        )
+        text = await i18n(user_id, "refresh-ok", time=when, channels=result.get("panel", "RU"))
         expiry = int(result.get("expiry") or 0)
         if expiry:
             date = datetime.fromtimestamp(expiry / 1000).strftime("%d.%m.%Y")
@@ -163,8 +152,7 @@ async def copy_sub(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
     await callback.message.answer(
-        await i18n(user_id, "copy-sub-title")
-        + f"\n\n<code>{subscription_url(user_id)}</code>",
+        await i18n(user_id, "copy-sub-title") + f"\n\n<code>{subscription_url(user_id)}</code>",
         reply_markup=await copy_kb(i18n, user_id),
     )
 
@@ -183,9 +171,7 @@ async def copy_happ(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
 
 @user_keys_router.callback_query(F.data == "xhttp_key")
 @aiogram_inject
-async def xhttp_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def xhttp_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await callback.answer(await i18n(user_id, "generation"))
     result = await access.issue_xhttp(user_id)
@@ -221,9 +207,7 @@ async def help_cb(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
         text += "\n" + await i18n(user_id, "help-channel", link=VIP_INVITE_URL)
     text += "\n\n" + await i18n(user_id, "help-short")
     text += "\n\n" + await i18n(user_id, "help-warning")
-    await callback.message.answer(
-        text, reply_markup=await help_kb(i18n, user_id, VIP_INVITE_URL)
-    )
+    await callback.message.answer(text, reply_markup=await help_kb(i18n, user_id, VIP_INVITE_URL))
 
 
 @user_keys_router.callback_query(F.data == "trouble_help")
@@ -247,8 +231,7 @@ async def donate_cb(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
     await callback.message.answer(
-        await i18n(user_id, "donate-title"),
-        reply_markup=await donate_kb(i18n, user_id, DONATE_URL),
+        await i18n(user_id, "donate-title"), reply_markup=await donate_kb(i18n, user_id, DONATE_URL)
     )
 
 
@@ -265,16 +248,12 @@ async def check_sub(
         await callback.answer()
         await send_key(callback.message, user_id, access, i18n, state)
     else:
-        await callback.answer(
-            await i18n(user_id, "subscription-check-failed"), show_alert=True
-        )
+        await callback.answer(await i18n(user_id, "subscription-check-failed"), show_alert=True)
 
 
 @user_keys_router.callback_query(F.data == "sel_key")
 @aiogram_inject
-async def sel_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def sel_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await callback.answer(await i18n(user_id, "generation"))
     result = await access.issue_sel(user_id)
@@ -313,9 +292,7 @@ async def awg_key(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     )
 
 
-async def message_ok(
-    callback: CallbackQuery, i18n: I18n, user_id: int, title_key: str, link: str
-) -> None:
+async def message_ok(callback: CallbackQuery, i18n: I18n, user_id: int, title_key: str, link: str) -> None:
     await callback.message.answer(
         await i18n(user_id, title_key) + f"\n\n<code>{link}</code>",
         reply_markup=await back_to_menu_kb(i18n, user_id),

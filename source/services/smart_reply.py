@@ -6,8 +6,6 @@
 
 Прокси: если задан SMART_PROXY (например socks5h://127.0.0.1:1080), запрос идёт через него.
 """
-
-import contextlib
 import json
 import logging
 import os
@@ -22,27 +20,9 @@ ENV_PATH = os.getenv("BOT_ENV_PATH", "/opt/vpn-bot-v2/.env")
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 
 # слова, которые не должны появляться в ответе ни при каких условиях
-FORBIDDEN = (
-    "vpn",
-    "впн",
-    "vless",
-    "reality",
-    "trojan",
-    "ключ",
-    "оплат",
-    "тариф",
-    "обход",
-    "блокиров",
-    "тспу",
-    "ркн",
-    "dns",
-    "anti-detect",
-    "отпечат",
-    "tls",
-    "sni",
-    "каскад",
-    "цензур",
-)
+FORBIDDEN = ("vpn", "впн", "vless", "reality", "trojan", "ключ", "оплат", "тариф",
+             "обход", "блокиров", "тспу", "ркн", "dns", "anti-detect", "отпечат",
+             "tls", "sni", "каскад", "цензур")
 
 SYSTEM = (
     "Ты — поддержка сервиса «Доступ к интернету» в Telegram. Пишешь от лица сервиса, "
@@ -82,24 +62,11 @@ def _env(key: str, default: str = "") -> str:
 
 def _curl_json(url: str, payload: dict, headers=None, timeout: int = 30):
     """POST через curl: работает и с прокси, и без; python-urllib тут ни при чём."""
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".json", delete=False, encoding="utf-8"
-    ) as f:
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False)
         path = f.name
-    cmd = [
-        "curl",
-        "-sS",
-        "--max-time",
-        str(timeout),
-        "-X",
-        "POST",
-        url,
-        "-H",
-        "Content-Type: application/json",
-        "--data-binary",
-        f"@{path}",
-    ]
+    cmd = ["curl", "-sS", "--max-time", str(timeout), "-X", "POST", url,
+           "-H", "Content-Type: application/json", "--data-binary", f"@{path}"]
     for h in headers or []:
         cmd += ["-H", h]
     proxy = _env("SMART_PROXY")
@@ -108,12 +75,13 @@ def _curl_json(url: str, payload: dict, headers=None, timeout: int = 30):
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 10)
     finally:
-        with contextlib.suppress(OSError):
+        try:
             os.unlink(path)
+        except OSError:
+            pass
     if p.returncode != 0:
         raise RuntimeError(f"curl rc={p.returncode}: {p.stderr.strip()[:200]}")
     return json.loads(p.stdout)
-
 
 def _clean(text: str) -> str:
     text = re.sub(r"\s+", " ", (text or "").strip())
@@ -122,8 +90,7 @@ def _clean(text: str) -> str:
 
 # слово ловим по началу токена: «блокировок» поймается, а «переключи» — нет
 _BOUND = re.compile(
-    r"(?<![а-яёa-z])(" + "|".join(re.escape(w) for w in FORBIDDEN) + r")[а-яёa-z]*"
-)
+    r"(?<![а-яёa-z])(" + "|".join(re.escape(w) for w in FORBIDDEN) + r")[а-яёa-z]*")
 
 
 def _stop_words(text: str) -> list:
@@ -138,13 +105,7 @@ def _looks_safe(text: str) -> bool:
 def _gemini_models() -> list:
     """Порядок моделей: сначала наша, потом запасные — у бесплатного тарифа бывают всплески 503."""
     first = _env("SMART_MODEL", DEFAULT_GEMINI_MODEL)
-    chain = [
-        first,
-        "gemini-flash-latest",
-        "gemini-3-flash-preview",
-        "gemini-3.1-flash",
-        "gemini-2.5-pro",
-    ]
+    chain = [first, "gemini-flash-latest", "gemini-3-flash-preview", "gemini-3.1-flash", "gemini-2.5-pro"]
     out = []
     for m in chain:
         if m and m not in out:
@@ -170,40 +131,22 @@ def _ask_gemini(question: str, facts: str) -> str | None:
 
 
 def _gemini_call(model: str, key: str, question: str, facts: str) -> str | None:
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent?key={key}"
-    )
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+           f"{model}:generateContent?key={key}")
     payload = {
         "system_instruction": {"parts": [{"text": SYSTEM}]},
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": f"Данные о клиенте (пересказывать не нужно): {facts}\n\nВопрос клиента: {question}"
-                    }
-                ],
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.4,
-            "maxOutputTokens": 400,
-            "thinkingConfig": {"thinkingBudget": 0},
-        },
+        "contents": [{"role": "user", "parts": [{"text": f"Данные о клиенте (пересказывать не нужно): {facts}\n\nВопрос клиента: {question}"}]}],
+        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 400,
+                             "thinkingConfig": {"thinkingBudget": 0}},
     }
     data = _curl_json(url, payload)
     if "error" in data:
         raise RuntimeError(f"{model}: {data['error'].get('message','')[:120]}")
     cand = (data.get("candidates") or [{}])[0]
-    parts = (cand.get("content") or {}).get("parts") or []
-    text = " ".join(
-        p.get("text", "") for p in parts if p.get("text") and not p.get("thought")
-    )
+    parts = ((cand.get("content") or {}).get("parts") or [])
+    text = " ".join(p.get("text", "") for p in parts if p.get("text") and not p.get("thought"))
     if not text.strip():
-        raise RuntimeError(
-            f"{model}: пустой ответ, finishReason={cand.get('finishReason')}"
-        )
+        raise RuntimeError(f"{model}: пустой ответ, finishReason={cand.get('finishReason')}")
     return _clean(text) or None
 
 
@@ -214,12 +157,9 @@ def _ask_groq(question: str, facts: str) -> str | None:
     url = "https://api.groq.com/openai/v1/chat/completions"
     payload = {
         "model": _env("GROQ_MODEL", "openai/gpt-oss-120b"),
-        "messages": [
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": f"{facts}\n\nОбращение: {question}"},
-        ],
-        "temperature": 0.4,
-        "max_tokens": 300,
+        "messages": [{"role": "system", "content": SYSTEM},
+                     {"role": "user", "content": f"{facts}\n\nОбращение: {question}"}],
+        "temperature": 0.4, "max_tokens": 300,
     }
     data = _curl_json(url, payload, headers=[f"Authorization: Bearer {key}"])
     try:
@@ -241,11 +181,11 @@ def _providers() -> list:
 def answer(question: str, facts: str = "") -> str | None:
     """Вернёт текст ответа или None (тогда бот отвечает как раньше)."""
     if _env("SMART_REPLY", "on").lower() in ("off", "0", "no", "выкл"):
-        return None  # рубильник: одной строкой в .env
+        return None                      # рубильник: одной строкой в .env
     if not question or len(question) < 2:
         return None
     for provider in _providers():
-        for _attempt in (1, 2):
+        for attempt in (1, 2):
             try:
                 text = provider(question, facts)
             except Exception as e:
@@ -258,14 +198,9 @@ def answer(question: str, facts: str = "") -> str | None:
             if _looks_safe(text):
                 return text
             # в ответе проскочили запрещённые слова — просим переписать один раз
-            logger.warning(
-                f"smart_reply: в ответе запрещённые слова {_stop_words(text)}, прошу переписать"
-            )
-            question = (
-                question
-                + "\n\nВАЖНО: перепиши ответ, не используя слова: "
-                + ", ".join(FORBIDDEN[:12])
-            )
+            logger.warning(f"smart_reply: в ответе запрещённые слова {_stop_words(text)}, прошу переписать")
+            question = (question + "\n\nВАЖНО: перепиши ответ, не используя слова: "
+                        + ", ".join(FORBIDDEN[:12]))
     return None
 
 
@@ -274,27 +209,21 @@ def build_facts(user: dict | None, node_ok: bool | None = None) -> str:
     if not user:
         return "Факты: доступа у человека ещё нет (он не получал ссылку)."
     import datetime
-
     parts = []
     parts.append("Факты:")
     parts.append(f"доступ выдан: {'да' if user.get('is_active') else 'нет'}")
     exp = user.get("expiry_at")
     if exp:
-        with contextlib.suppress(Exception):
-            parts.append(
-                "действует до "
-                + datetime.datetime.fromtimestamp(exp / 1000).strftime("%d.%m.%Y")
-            )
-    used = (user.get("used_bytes") or 0) / (1024**3)
-    total = (user.get("total_bytes") or 0) / (1024**3)
+        try:
+            parts.append("действует до " + datetime.datetime.fromtimestamp(exp / 1000).strftime("%d.%m.%Y"))
+        except Exception:
+            pass
+    used = (user.get("used_bytes") or 0) / (1024 ** 3)
+    total = (user.get("total_bytes") or 0) / (1024 ** 3)
     if total:
         parts.append(f"использовано {used:.1f} ГБ из {total:.0f} ГБ")
     if user.get("banned"):
         parts.append("доступ заблокирован отпиской")
     if node_ok is not None:
-        parts.append(
-            "сервис сейчас работает"
-            if node_ok
-            else "на стороне сервиса сейчас техническая пауза"
-        )
+        parts.append("сервис сейчас работает" if node_ok else "на стороне сервиса сейчас техническая пауза")
     return ", ".join(parts) + "."

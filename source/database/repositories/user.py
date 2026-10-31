@@ -80,27 +80,19 @@ class UserRepository(AbstractRepository[UserOrm, int]):
     async def get_by_email(self, email: str) -> UserOrm | None:
         return await self.get_by_filters(email=email)
 
-    async def upsert_user(
-        self, user_id: int, defaults: dict[str, Any] | None = None
-    ) -> UserOrm:
+    async def upsert_user(self, user_id: int, defaults: dict[str, Any] | None = None) -> UserOrm:
         """Вернуть пользователя, создав запись при первом обращении."""
         user = await self.get(user_id)
         if user:
             return user
-        data: dict[str, Any] = {
-            "user_id": user_id,
-            "username": "",
-            "email": f"u{user_id}",
-        }
+        data: dict[str, Any] = {"user_id": user_id, "username": "", "email": f"u{user_id}"}
         if defaults:
             data.update(defaults)
         return await self.add(data)
 
     async def set_username(self, user_id: int, username: str) -> None:
         await self.session.execute(
-            update(self.model)
-            .where(self.model.user_id == user_id)
-            .values(username=username or "")
+            update(self.model).where(self.model.user_id == user_id).values(username=username or "")
         )
 
     async def save_key(
@@ -130,14 +122,10 @@ class UserRepository(AbstractRepository[UserOrm, int]):
 
     async def set_active(self, user_id: int, active: bool) -> None:
         await self.session.execute(
-            update(self.model)
-            .where(self.model.user_id == user_id)
-            .values(is_active=active)
+            update(self.model).where(self.model.user_id == user_id).values(is_active=active)
         )
 
-    async def set_banned(
-        self, user_id: int, banned: bool, reason: str = "", at_ms: int = 0
-    ) -> None:
+    async def set_banned(self, user_id: int, banned: bool, reason: str = "", at_ms: int = 0) -> None:
         await self.session.execute(
             update(self.model)
             .where(self.model.user_id == user_id)
@@ -153,23 +141,17 @@ class UserRepository(AbstractRepository[UserOrm, int]):
 
     async def update_traffic(self, user_id: int, used_bytes: float) -> None:
         await self.session.execute(
-            update(self.model)
-            .where(self.model.user_id == user_id)
-            .values(used_bytes=used_bytes)
+            update(self.model).where(self.model.user_id == user_id).values(used_bytes=used_bytes)
         )
 
     async def set_channel_step(self, user_id: int, step: int) -> None:
         await self.session.execute(
-            update(self.model)
-            .where(self.model.user_id == user_id)
-            .values(channel_step=step)
+            update(self.model).where(self.model.user_id == user_id).values(channel_step=step)
         )
 
     async def set_chosen_channel(self, user_id: int, channel: int) -> None:
         await self.session.execute(
-            update(self.model)
-            .where(self.model.user_id == user_id)
-            .values(chosen_channel=channel)
+            update(self.model).where(self.model.user_id == user_id).values(chosen_channel=channel)
         )
 
     async def add_balance(self, user_id: int, amount: int) -> None:
@@ -181,9 +163,7 @@ class UserRepository(AbstractRepository[UserOrm, int]):
 
     # ------------------------------------------------------------ выборки
     async def list_subscribed(self) -> Sequence[UserOrm]:
-        stmt = select(self.model).where(
-            self.model.banned.is_(False), self.model.email.is_not(None)
-        )
+        stmt = select(self.model).where(self.model.banned.is_(False), self.model.email.is_not(None))
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
@@ -197,22 +177,14 @@ class UserRepository(AbstractRepository[UserOrm, int]):
         return result.scalars().all()
 
     async def count_all(self) -> int:
-        return int(
-            await self.session.scalar(select(func.count()).select_from(self.model)) or 0
-        )
+        return int(await self.session.scalar(select(func.count()).select_from(self.model)) or 0)
 
     async def count_active(self) -> int:
-        stmt = (
-            select(func.count())
-            .select_from(self.model)
-            .where(self.model.is_active.is_(True), self.model.banned.is_(False))
+        stmt = select(func.count()).select_from(self.model).where(
+            self.model.is_active.is_(True), self.model.banned.is_(False)
         )
         return int(await self.session.scalar(stmt) or 0)
 
     async def count_banned(self) -> int:
-        stmt = (
-            select(func.count())
-            .select_from(self.model)
-            .where(self.model.banned.is_(True))
-        )
+        stmt = select(func.count()).select_from(self.model).where(self.model.banned.is_(True))
         return int(await self.session.scalar(stmt) or 0)

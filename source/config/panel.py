@@ -10,9 +10,7 @@ from pydantic_settings import SettingsConfigDict
 
 
 class _PanelEnv(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", case_sensitive=True
-    )
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=True)
 
     # --- 3x-UI: основной узел (DE/финка, каскадные каналы) ---
     PANEL_URL: str = ""
@@ -99,15 +97,11 @@ _env = _PanelEnv()
 
 PANEL_URL: str = _env.PANEL_URL.rstrip("/")
 PANEL_API_TOKEN: str = _env.PANEL_API_TOKEN
-INBOUND_IDS: list[int] = [
-    int(x) for x in _env.INBOUND_IDS.split(",") if x.strip().isdigit()
-]
+INBOUND_IDS: list[int] = [int(x) for x in _env.INBOUND_IDS.split(",") if x.strip().isdigit()]
 
 PANEL_RU_URL: str = _env.PANEL_RU_URL.rstrip("/")
 PANEL_RU_API_TOKEN: str = _env.PANEL_RU_API_TOKEN
-RU_INBOUND_IDS: list[int] = [
-    int(x) for x in _env.RU_INBOUND_IDS.split(",") if x.strip().isdigit()
-]
+RU_INBOUND_IDS: list[int] = [int(x) for x in _env.RU_INBOUND_IDS.split(",") if x.strip().isdigit()]
 
 CASCADE_HOST: str = _env.CASCADE_HOST
 CASCADE_PORT: int = _env.CASCADE_PORT

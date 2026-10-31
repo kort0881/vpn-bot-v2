@@ -17,10 +17,7 @@ admin_vpn_router = Router(name=__name__)
 
 class IsAdmin(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        return (
-            bool(settings.tg.admin_ids)
-            and message.from_user.id in settings.tg.admin_ids
-        )
+        return bool(settings.tg.admin_ids) and message.from_user.id in settings.tg.admin_ids
 
 
 @admin_vpn_router.message(Command("stats"), IsAdmin())
@@ -41,9 +38,7 @@ async def stats(message: Message, access: FromDishka[AccessService]) -> None:
 
 @admin_vpn_router.message(Command("broadcast"), IsAdmin())
 @aiogram_inject
-async def broadcast(
-    message: Message, command: CommandObject, access: FromDishka[AccessService]
-) -> None:
+async def broadcast(message: Message, command: CommandObject, access: FromDishka[AccessService]) -> None:
     text = (command.args or "").strip()
     if not text:
         await message.answer("Использование: /broadcast текст сообщения")
@@ -62,9 +57,7 @@ async def broadcast(
 
 @admin_vpn_router.message(Command("ban"), IsAdmin())
 @aiogram_inject
-async def ban(
-    message: Message, command: CommandObject, access: FromDishka[AccessService]
-) -> None:
+async def ban(message: Message, command: CommandObject, access: FromDishka[AccessService]) -> None:
     parts = (command.args or "").split(maxsplit=1)
     if not parts or not parts[0].isdigit():
         await message.answer("Использование: /ban <telegram_id> [причина]")
@@ -77,9 +70,7 @@ async def ban(
 
 @admin_vpn_router.message(Command("unban"), IsAdmin())
 @aiogram_inject
-async def unban(
-    message: Message, command: CommandObject, access: FromDishka[AccessService]
-) -> None:
+async def unban(message: Message, command: CommandObject, access: FromDishka[AccessService]) -> None:
     arg = (command.args or "").strip()
     if not arg.isdigit():
         await message.answer("Использование: /unban <telegram_id>")

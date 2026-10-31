@@ -34,9 +34,7 @@ def _sub_url(user_id: int) -> str:
     return SUB_URL.format(user_id=user_id)
 
 
-async def build_page_text(
-    page: int, user_id: int, access: AccessService, i18n: I18n
-) -> str:
+async def build_page_text(page: int, user_id: int, access: AccessService, i18n: I18n) -> str:
     """Текст одной страницы. Никакой логики, кроме выбора данных."""
     user = await access.get_user(user_id)
     has_key = access.has_active_key(user)
@@ -60,95 +58,62 @@ async def build_page_text(
         return "\n\n".join(parts)
 
     if page == 3:
-        return "\n\n".join(
-            [
-                await i18n(user_id, "page-3-title"),
-                await i18n(user_id, "page-3-body"),
-            ]
-        )
+        return "\n\n".join([
+            await i18n(user_id, "page-3-title"),
+            await i18n(user_id, "page-3-body"),
+        ])
 
     if page == 4:
-        return "\n\n".join(
-            [
-                await i18n(user_id, "page-4-title"),
-                await i18n(user_id, "help-short"),
-                await i18n(user_id, "trouble-steps"),
-            ]
-        )
+        return "\n\n".join([
+            await i18n(user_id, "page-4-title"),
+            await i18n(user_id, "help-short"),
+            await i18n(user_id, "trouble-steps"),
+        ])
 
-    return "\n\n".join(
-        [
-            await i18n(user_id, "page-5-title"),
-            await i18n(user_id, "page-5-body"),
-        ]
-    )
+    return "\n\n".join([
+        await i18n(user_id, "page-5-title"),
+        await i18n(user_id, "page-5-body"),
+    ])
 
 
 async def build_page_kb(page: int, user_id: int, i18n: I18n):
     builder = InlineKeyboardBuilder()
 
     if page == 2:
-        builder.row(
-            InlineKeyboardButton(
-                text=await i18n(user_id, "page-refresh"), callback_data="page_refresh"
-            )
-        )
+        builder.row(InlineKeyboardButton(
+            text=await i18n(user_id, "page-refresh"), callback_data="page_refresh"))
 
     if page == 3:
-        builder.row(
-            InlineKeyboardButton(text="🔷 Selectel · 3 ТБ", callback_data="sel_key")
-        )
-        builder.row(
-            InlineKeyboardButton(text="🧪 XHTTP · 300 ГБ", callback_data="xhttp_key")
-        )
+        builder.row(InlineKeyboardButton(text="🔷 Selectel · 3 ТБ", callback_data="sel_key"))
+        builder.row(InlineKeyboardButton(text="🧪 XHTTP · 300 ГБ", callback_data="xhttp_key"))
         builder.row(InlineKeyboardButton(text="🛡 TrustTunnel", callback_data="tt_key"))
         builder.row(InlineKeyboardButton(text="🛡 AmneziaWG", callback_data="awg_key"))
 
     nav = []
     if page > 1:
-        nav.append(
-            InlineKeyboardButton(
-                text=await i18n(user_id, "page-prev"), callback_data=f"page:{page - 1}"
-            )
-        )
-    nav.append(
-        InlineKeyboardButton(
-            text=await i18n(user_id, "page-counter", page=page, total=TOTAL_PAGES),
-            callback_data="page:noop",
-        )
-    )
+        nav.append(InlineKeyboardButton(text=await i18n(user_id, "page-prev"), callback_data=f"page:{page - 1}"))
+    nav.append(InlineKeyboardButton(
+        text=await i18n(user_id, "page-counter", page=page, total=TOTAL_PAGES),
+        callback_data="page:noop",
+    ))
     if page < TOTAL_PAGES:
-        nav.append(
-            InlineKeyboardButton(
-                text=await i18n(user_id, "page-next"), callback_data=f"page:{page + 1}"
-            )
-        )
+        nav.append(InlineKeyboardButton(text=await i18n(user_id, "page-next"), callback_data=f"page:{page + 1}"))
     builder.row(*nav)
 
-    builder.row(
-        InlineKeyboardButton(
-            text=await i18n(user_id, "main-menu"), callback_data="main_menu"
-        )
-    )
+    builder.row(InlineKeyboardButton(text=await i18n(user_id, "main-menu"), callback_data="main_menu"))
     return builder.as_markup()
 
 
-async def open_page(
-    callback: CallbackQuery, page: int, access: AccessService, i18n: I18n
-) -> None:
+async def open_page(callback: CallbackQuery, page: int, access: AccessService, i18n: I18n) -> None:
     """Показать страницу, отредактировав текущее сообщение."""
     page = max(1, min(TOTAL_PAGES, page))
     user_id = callback.from_user.id
     text = await build_page_text(page, user_id, access, i18n)
     kb = await build_page_kb(page, user_id, i18n)
     try:
-        await callback.message.edit_text(
-            text, reply_markup=kb, disable_web_page_preview=True
-        )
+        await callback.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
     except Exception:  # noqa: BLE001 — сообщение не редактируется (старое/с картинкой)
-        await callback.message.answer(
-            text, reply_markup=kb, disable_web_page_preview=True
-        )
+        await callback.message.answer(text, reply_markup=kb, disable_web_page_preview=True)
 
 
 @user_pages_router.callback_query(F.data == "page:noop")

@@ -20,7 +20,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         user_id = None
-        if isinstance(event, Message | CallbackQuery) and event.from_user:
+        if isinstance(event, (Message, CallbackQuery)) and event.from_user:
             user_id = event.from_user.id
 
         if user_id is None:
@@ -31,7 +31,9 @@ class ThrottlingMiddleware(BaseMiddleware):
             i18n = data.get("i18n")
             if i18n is not None:
                 message = await i18n(user_id, "throttling")
-            if isinstance(event, Message | CallbackQuery):
+            if isinstance(event, CallbackQuery):
+                await event.answer(message)
+            elif isinstance(event, Message):
                 await event.answer(message)
             return None
 

@@ -37,9 +37,7 @@ class PollRepository(AbstractRepository[PollAnswerOrm, int]):
         res = await self.session.execute(select(self.model).filter_by(**filters))
         return res.scalar_one_or_none()
 
-    async def update_by_filters(
-        self, filters: dict[str, Any], data: dict[str, Any]
-    ) -> Sequence[PollAnswerOrm]:
+    async def update_by_filters(self, filters: dict[str, Any], data: dict[str, Any]) -> Sequence[PollAnswerOrm]:
         rows = await self.list_by_filters(**filters)
         for row in rows:
             for k, v in data.items():
