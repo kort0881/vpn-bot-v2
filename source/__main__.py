@@ -22,13 +22,18 @@ async def start_polling():
     logger.info("Starting polling...")
 
     container = create_container()
-    if settings.environment != "production":
-        engine = await container.get(AsyncEngine)
-        await create_tables(engine)
+    engine = await container.get(AsyncEngine)
+    from source.database import auto_migrate
+
+    await auto_migrate(engine)
     bot = create_bot()
     dp = create_dispatcher()
 
     await set_default_commands(bot)
+
+    from source.diagnostics import startup_selfcheck
+
+    await startup_selfcheck(bot)
 
     setup_aiogram_dishka(container=container, router=dp, auto_inject=True)
 

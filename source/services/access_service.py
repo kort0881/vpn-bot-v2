@@ -60,7 +60,9 @@ class AccessService(BaseService):
             return False
         if not user.is_active or user.banned:
             return False
-        return not (user.expiry_at and user.expiry_at < time.time() * 1000)
+        if user.expiry_at and user.expiry_at < time.time() * 1000:
+            return False
+        return True
 
     async def issue_key(self, user_id: int, username: str = "") -> tuple[UserOrm, PanelClient]:
         user = await self.ensure_user(user_id, username)

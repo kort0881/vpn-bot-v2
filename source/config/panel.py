@@ -67,6 +67,8 @@ class _PanelEnv(BaseSettings):
     VIP_SNI: str = "cdn.dostupnety.website"
     VIP_SERVER: str = "203.0.113.10"
     VIP_TOTAL_GB: int = 300
+    VIP_POST_URL: str = ""
+    FALLBACK_SUB_URL: str = ""
 
     # --- Selectel ---
     SEL_ENABLED: bool = False
@@ -91,6 +93,8 @@ class _PanelEnv(BaseSettings):
     TT_VIDEO_FILE_ID: str = ""
     TT_SERVICE_LINK: str = ""
     AWG_SERVICE_LINK: str = ""
+    AWG_APP_URL: str = "https://amnezia.org/downloads"
+    TT_APP_URL: str = ""
 
 
 _env = _PanelEnv()
@@ -136,6 +140,8 @@ EXPIRE_MS: int = EXPIRE_DAYS * 24 * 60 * 60 * 1000
 
 VIP_CHANNEL_ID: str = _env.VIP_CHANNEL_ID
 VIP_INVITE_URL: str = _env.VIP_INVITE_URL
+VIP_POST_URL: str = _env.VIP_POST_URL
+FALLBACK_SUB_URL: str = _env.FALLBACK_SUB_URL
 VIP_INBOUND_ID: int = _env.VIP_INBOUND_ID
 VIP_PORT: int = _env.VIP_PORT
 VIP_PATH: str = _env.VIP_PATH
@@ -166,5 +172,7 @@ TT_PANEL_PASS: str = _env.TT_PANEL_PASS
 TT_VIDEO_FILE_ID: str = _env.TT_VIDEO_FILE_ID
 TT_SERVICE_LINK: str = _env.TT_SERVICE_LINK
 AWG_SERVICE_LINK: str = _env.AWG_SERVICE_LINK
+AWG_APP_URL: str = _env.AWG_APP_URL or "https://amnezia.org/downloads"
+TT_APP_URL: str = _env.TT_APP_URL or ""
 
 __all__ = [name for name in dir() if name.isupper()]

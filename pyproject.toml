@@ -87,9 +87,7 @@ known_localfolder = ["source", "migrations"]
 [tool.mypy]
 python_version = "3.11"
 plugins = ["sqlalchemy.ext.mypy.plugin"]
-disallow_untyped_defs = false
-ignore_missing_imports = true
-warn_unused_ignores = false
+disallow_untyped_defs = true
 exclude = ["aiogram_template_bot.egg-info", "source/data"]
 
 [tool.ruff]
@@ -105,7 +103,7 @@ skip-magic-trailing-comma = false
 line-ending = "lf"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "SIM", "UP", "ASYNC"]
+select = ["ALL"]
 
 ignore = [
     "E501",
@@ -122,10 +120,6 @@ ignore = [
 ]
 
 unfixable = ["B"]
-
-[tool.ruff.lint.per-file-ignores]
-# реэкспорты ORM/репозиториев — звезда здесь намеренная (публичный API пакета)
-"source/database/__init__.py" = ["F403", "F405"]
 
 [tool.ruff.lint.isort]
 

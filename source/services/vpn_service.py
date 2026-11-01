@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import urllib.parse
 import uuid as uuid_lib
 from typing import Optional
@@ -60,68 +61,83 @@ class VpnPanelService(BaseService):
     async def traffic_map(self) -> dict:
         return await self.panel.get_traffic_map()
 
-    async def client_traffic(self, email: str) -> dict | None:
+    async def client_traffic(self, email: str) -> Optional[dict]:
         return await self.panel.get_client_traffic(email)
 
     # ------------------------------------------------------------------ VIP-канал
-    async def issue_vip(self, tg_id: int) -> dict | None:
+    async def issue_vip(self, tg_id: int) -> Optional[dict]:
         return await self.panel.add_vip_client(tg_id)
 
-    async def refresh_vip(self, tg_id: int) -> str | None:
+    async def refresh_vip(self, tg_id: int) -> Optional[str]:
         return await self.panel.refresh_vip_link(tg_id)
 
     async def set_vip_enabled(self, tg_id: int, enable: bool) -> bool:
         return await self.panel.set_vip_enabled(tg_id, enable)
 
-    async def vip_traffic(self, tg_id: int) -> float | None:
+    async def vip_traffic(self, tg_id: int) -> Optional[float]:
         return await self.panel.get_vip_traffic(tg_id)
 
     # ------------------------------------------------------------------ Selectel / TT
-    async def issue_sel(self, tg_id: int) -> dict | None:
+    async def issue_sel(self, tg_id: int) -> Optional[dict]:
         if not SEL_ENABLED:
             return None
         return await self.panel.add_sel_client(tg_id)
 
-    async def issue_cascade(self, tg_id: int, username: str = "") -> PanelClient | None:
+    async def issue_cascade(self, tg_id: int, username: str = "") -> Optional[PanelClient]:
         return await self.panel.add_cascade_client(tg_id, username)
 
     # ------------------------------------------------------------------ XHTTP (self-steal)
-    async def issue_xhttp(self, tg_id: int) -> dict | None:
+    async def issue_xhttp(self, tg_id: int) -> Optional[dict]:
         """Выдать ключ XHTTP через nginx на 443 (канал для белых списков).
 
         Создаёт клиента только в XHTTP-инбаунде и возвращает готовую ссылку.
+        Используется новый API панели /panel/api/clients/add: легаси-путь
+        /panel/api/inbounds/addClient CDN не проксирует (HTTP 502).
         """
         if not XHTTP_ENABLED:
-            logger.warning("XHTTP-канал выключен (XHTTP_ENABLED=0)")
+            logger.warning("XHTTP: канал выключен (XHTTP_ENABLED=0)")
             return None
 
-        email = f"tg_{tg_id}"
+        email = f"x{tg_id}"
         client_uuid = str(uuid_lib.uuid4())
-        payload = {
-            "id": XHTTP_INBOUND_ID,
-            "settings": {
-                "clients": [
-                    {
-                        "id": client_uuid,
-                        "email": email,
-                        "limitIp": LIMIT_IP,
-                        "totalGB": XHTTP_TOTAL_BYTES,
-                        "expiryTime": int(__import__("time").time() * 1000) + EXPIRE_MS,
-                        "enable": True,
-                        "flow": "",
-                        "tgId": tg_id,
-                        "subId": "",
-                    }
-                ]
-            },
-        }
+
+        # Клиент уже есть — не создаём дубль, отдаём актуальную ссылку.
         try:
-            await self.panel._request(  # noqa: SLF001 — тонкая обёртка над API панели
-                "POST", "/panel/api/inbounds/addClient", json=payload
-            )
+            existing = await self.panel._get_client_uuid(email)  # noqa: SLF001
         except Exception as exc:  # noqa: BLE001
-            logger.error("XHTTP: не удалось создать клиента %s: %s", email, exc)
-            return None
+            logger.warning("XHTTP: не удалось проверить наличие клиента %s: %s", email, exc)
+            existing = None
+
+        if existing:
+            client_uuid = existing
+            logger.info("XHTTP: клиент %s уже существует, uuid=%s", email, client_uuid)
+        else:
+            payload = {
+                "client": {
+                    "email": email,
+                    "uuid": client_uuid,
+                    "password": client_uuid,
+                    "flow": "",
+                    "limitIp": LIMIT_IP,
+                    "totalGB": XHTTP_TOTAL_BYTES,
+                    "expiryTime": int(time.time() * 1000) + EXPIRE_MS,
+                    "enable": True,
+                    "tgId": int(tg_id),
+                },
+                "inboundIds": [XHTTP_INBOUND_ID],
+            }
+            try:
+                await self.panel._request(  # noqa: SLF001 — тонкая обёртка над API панели
+                    "POST", "/panel/api/clients/add", json=payload
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error("XHTTP: не удалось создать клиента %s: %s", email, exc)
+                return None
+            try:
+                client_uuid = await self.panel._get_client_uuid(email) or client_uuid  # noqa: SLF001
+            except Exception:  # noqa: BLE001
+                pass
+            logger.info("XHTTP: клиент %s создан в инбаунде %s", email, XHTTP_INBOUND_ID)
 
         link = self.build_xhttp_link(client_uuid, email)
         return {"email": email, "uuid": client_uuid, "link": link}

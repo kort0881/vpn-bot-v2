@@ -4,13 +4,20 @@ from aiogram import F
 from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
+from aiogram.types import CopyTextButton
+from aiogram.types import InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import Message
 from dishka import FromDishka
 from dishka.integrations.aiogram import inject as aiogram_inject
 from loguru import logger
 
+from source.config.panel import AWG_APP_URL
 from source.config.panel import AWG_SERVICE_LINK
 from source.config.panel import CHANNEL_ID
+from source.config.panel import TT_APP_URL
+from source.config.panel import FALLBACK_SUB_URL
+from source.config.panel import VIP_POST_URL
 from source.config.panel import TT_SERVICE_LINK
 from source.config.panel import DONATE_URL
 from source.config.panel import SUB_URL
@@ -26,6 +33,7 @@ from source.telegram.keyboards.vpn import keys_kb
 from source.telegram.keyboards.vpn import main_menu_kb
 from source.telegram.keyboards.vpn import my_key_empty_kb
 from source.telegram.keyboards.vpn import trouble_kb
+from source.telegram.navigation import render
 from source.utils import I18n
 from source.utils.subscription import is_subscribed
 
@@ -85,6 +93,12 @@ async def send_key(
             await access.incr_keys()
     except Exception as exc:  # noqa: BLE001
         logger.exception(f"send_key {user_id}: {exc}")
+        if FALLBACK_SUB_URL:
+            logger.warning(f"send_key {user_id}: панель недоступна, отдаю временную ссылку")
+            await message.answer(
+                await i18n(user_id, "fallback-note") + f"\n\n<code>{FALLBACK_SUB_URL}</code>"
+            )
+            return
         await message.answer(await i18n(user_id, "error", error=str(exc)[:200]))
         return
 
@@ -151,9 +165,10 @@ async def refresh_key(callback: CallbackQuery, access: FromDishka[AccessService]
 async def copy_sub(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
-    await callback.message.answer(
+    await render(
+        callback,
         await i18n(user_id, "copy-sub-title") + f"\n\n<code>{subscription_url(user_id)}</code>",
-        reply_markup=await copy_kb(i18n, user_id),
+        await copy_kb(i18n, user_id, back_to="my_key"),
     )
 
 
@@ -163,9 +178,10 @@ async def copy_happ(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
     url = subscription_url(user_id) + "?f=happ"
-    await callback.message.answer(
+    await render(
+        callback,
         await i18n(user_id, "copy-happ") + f"\n\n<code>{url}</code>",
-        reply_markup=await back_to_menu_kb(i18n, user_id),
+        await copy_kb(i18n, user_id, back_to="my_key"),
     )
 
 
@@ -178,12 +194,13 @@ async def xhttp_key(callback: CallbackQuery, access: FromDishka[AccessService], 
     if not result:
         await callback.message.answer(await i18n(user_id, "xhttp-disabled"))
         return
-    await callback.message.answer(
+    await render(
+        callback,
         await i18n(user_id, "xhttp-title")
         + "\n\n"
         + await i18n(user_id, "xhttp-issued")
         + f"\n\n<code>{result['link']}</code>",
-        reply_markup=await back_to_menu_kb(i18n, user_id),
+        await keys_kb(i18n, user_id),
     )
 
 
@@ -191,9 +208,11 @@ async def xhttp_key(callback: CallbackQuery, access: FromDishka[AccessService], 
 @aiogram_inject
 async def main_menu(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     await callback.answer()
-    await callback.message.answer(
-        await i18n(callback.from_user.id, "main-menu"),
-        reply_markup=await main_menu_kb(i18n, callback.from_user.id, DONATE_URL),
+    user_id = callback.from_user.id
+    await render(
+        callback,
+        await i18n(user_id, "main-menu"),
+        await main_menu_kb(i18n, user_id, DONATE_URL),
     )
 
 
@@ -206,8 +225,14 @@ async def help_cb(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     if VIP_INVITE_URL:
         text += "\n" + await i18n(user_id, "help-channel", link=VIP_INVITE_URL)
     text += "\n\n" + await i18n(user_id, "help-short")
+    if VIP_POST_URL:
+        text += "\n\n" + await i18n(user_id, "help-post") + f"\n<code>{VIP_POST_URL}</code>"
     text += "\n\n" + await i18n(user_id, "help-warning")
-    await callback.message.answer(text, reply_markup=await help_kb(i18n, user_id, VIP_INVITE_URL))
+    await render(
+        callback,
+        text,
+        await help_kb(i18n, user_id, VIP_INVITE_URL, back_to="main_menu", post_url=VIP_POST_URL),
+    )
 
 
 @user_keys_router.callback_query(F.data == "trouble_help")
@@ -222,7 +247,7 @@ async def trouble_help(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
             await i18n(user_id, "trouble-tail"),
         ]
     )
-    await callback.message.answer(text, reply_markup=await trouble_kb(i18n, user_id))
+    await render(callback, text, await trouble_kb(i18n, user_id, back_to="help"))
 
 
 @user_keys_router.callback_query(F.data == "donate")
@@ -230,8 +255,10 @@ async def trouble_help(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
 async def donate_cb(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
-    await callback.message.answer(
-        await i18n(user_id, "donate-title"), reply_markup=await donate_kb(i18n, user_id, DONATE_URL)
+    await render(
+        callback,
+        await i18n(user_id, "donate-title"),
+        await donate_kb(i18n, user_id, DONATE_URL, back_to="main_menu"),
     )
 
 
@@ -264,17 +291,94 @@ async def sel_key(callback: CallbackQuery, access: FromDishka[AccessService], i1
     await message_ok(callback, i18n, user_id, "sel-title", link)
 
 
+@user_keys_router.callback_query(F.data == "boot")
+@aiogram_inject
+async def boot(
+    callback: CallbackQuery,
+    access: FromDishka[AccessService],
+    i18n: FromDishka[I18n],
+    state: FSMContext,
+) -> None:
+    """«Запустить бота»: сброс сценария + честная самопроверка панели."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    await state.clear()
+    await render(
+        callback,
+        await i18n(user_id, "boot-check"),
+        await main_menu_kb(i18n, user_id, DONATE_URL),
+    )
+    ok, reason = await _panel_alive(access)
+    if ok:
+        await callback.message.edit_text(
+            await i18n(user_id, "main-menu"),
+            reply_markup=await main_menu_kb(i18n, user_id, DONATE_URL),
+            disable_web_page_preview=True,
+        )
+        return
+
+    logger.error(f"boot/selfcheck: панель недоступна: {reason}")
+    alert = await _restart_if_allowed(callback.bot, user_id, reason)
+    await callback.message.edit_text(
+        await i18n(user_id, alert, reason=reason[:120]),
+        reply_markup=await main_menu_kb(i18n, user_id, DONATE_URL),
+        disable_web_page_preview=True,
+    )
+
+
+async def send_channel(
+    callback: CallbackQuery,
+    i18n: I18n,
+    user_id: int,
+    *,
+    title_key: str,
+    value: str,
+    app_url: str,
+    app_btn_key: str,
+) -> None:
+    """Показать канал: ключ и приложение отдельными копируемыми блоками."""
+    hint = await i18n(user_id, "channel-key-hint")
+    text = await i18n(user_id, title_key) + f"\n\n{hint}\n<code>{value}</code>"
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text=await i18n(user_id, "copy-channel"),
+            callback_data="copy-ch",
+            copy_text=CopyTextButton(text=value),
+        )
+    )
+    if app_url:
+        text += "\n\n" + await i18n(user_id, "channel-app-hint") + f"\n<code>{app_url}</code>"
+        builder.row(
+            InlineKeyboardButton(text=await i18n(user_id, app_btn_key), url=app_url)
+        )
+    builder.row(InlineKeyboardButton(text=await i18n(user_id, "back"), callback_data="main_menu"))
+    await render(callback, text, builder.as_markup())
+
+
+@user_keys_router.callback_query(F.data == "copy-ch")
+@aiogram_inject
+async def copy_channel_toast(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
+    await callback.answer(await i18n(callback.from_user.id, "copied"))
+
+
 @user_keys_router.callback_query(F.data == "tt_key")
 @aiogram_inject
 async def tt_key(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await callback.answer()
     if not TT_SERVICE_LINK:
+        logger.warning("TT: TT_SERVICE_LINK не задан в .env — канал скрыт")
         await callback.message.answer(await i18n(user_id, "channel-unavailable"))
         return
-    await callback.message.answer(
-        await i18n(user_id, "tt-title") + f"\n\n{TT_SERVICE_LINK}",
-        reply_markup=await back_to_menu_kb(i18n, user_id),
+    await send_channel(
+        callback,
+        i18n,
+        user_id,
+        title_key="tt-title",
+        value=TT_SERVICE_LINK,
+        app_url=TT_APP_URL,
+        app_btn_key="app-tt",
     )
 
 
@@ -284,16 +388,80 @@ async def awg_key(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await callback.answer()
     if not AWG_SERVICE_LINK:
+        logger.warning("AWG: AWG_SERVICE_LINK не задан в .env — канал скрыт")
         await callback.message.answer(await i18n(user_id, "channel-unavailable"))
         return
-    await callback.message.answer(
-        await i18n(user_id, "awg-title") + f"\n\n{AWG_SERVICE_LINK}",
-        reply_markup=await back_to_menu_kb(i18n, user_id),
+    await send_channel(
+        callback,
+        i18n,
+        user_id,
+        title_key="awg-title",
+        value=AWG_SERVICE_LINK,
+        app_url=AWG_APP_URL,
+        app_btn_key="app-awg",
     )
 
 
 async def message_ok(callback: CallbackQuery, i18n: I18n, user_id: int, title_key: str, link: str) -> None:
-    await callback.message.answer(
+    await render(
+        callback,
         await i18n(user_id, title_key) + f"\n\n<code>{link}</code>",
-        reply_markup=await back_to_menu_kb(i18n, user_id),
+        await keys_kb(i18n, user_id),
     )
+
+
+# ---------------------------------------------------------------- самопроверка
+async def _panel_alive(access: AccessService) -> tuple[bool, str]:
+    """Пинг панели: GET /panel/api/server/status с коротким таймаутом."""
+    try:
+        await access.vpn.panel._request("GET", "/panel/api/server/status")  # noqa: SLF001
+        return True, ""
+    except Exception as exc:  # noqa: BLE001
+        return False, f"{type(exc).__name__}: {exc}"
+
+
+async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
+    """Перезапуск сервиса не чаще раза в 10 минут + уведомление админу."""
+    import asyncio
+    import os
+    import subprocess
+    import time as _time
+
+    admin_id = 0
+    raw = os.getenv("ADMIN_ID") or os.getenv("TG__ADMIN_IDS", "")
+    for chunk in raw.replace("[", " ").replace("]", " ").replace(",", " ").split():
+        if chunk.isdigit():
+            admin_id = int(chunk)
+            break
+
+    guard = "/opt/vpn-bot-v2/.last_restart"
+    last = 0.0
+    try:
+        last = float(open(guard).read().strip())
+    except Exception:  # noqa: BLE001
+        pass
+    now = _time.time()
+
+    if admin_id:
+        try:
+            await bot.send_message(
+                admin_id,
+                f"⚠️ Самопроверка: панель недоступна ({reason[:200]}). user_id={user_id}",
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    if now - last < 600:
+        return "boot-restart-blocked"
+
+    try:
+        open(guard, "w").write(str(now))
+    except Exception:  # noqa: BLE001
+        pass
+
+    async def _do_restart() -> None:
+        await asyncio.sleep(3)
+        subprocess.run(["systemctl", "restart", "vpn-bot"], check=False)
+
+    asyncio.create_task(_do_restart())
+    return "boot-restart"
