@@ -46,7 +46,7 @@ async def survey_vote(
             full_name=user.full_name or "",
             option_ids=json.dumps([option - 1]),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error(f"survey record error: {exc}")
     await callback.answer("Спасибо! Записали: " + LABELS.get(option, "?"))
     logger.info(f"SURVEY_VOTE user={user.id} opt={option}")

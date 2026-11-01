@@ -8,8 +8,6 @@ from ..models import SupportMessageOrm
 from .base import AbstractRepository
 
 
-
-
 class SupportRepository(AbstractRepository[SupportMessageOrm, int]):
     model = SupportMessageOrm
 
@@ -22,7 +20,9 @@ class SupportRepository(AbstractRepository[SupportMessageOrm, int]):
     async def get(self, obj_id: int) -> SupportMessageOrm | None:
         return await self.get_by_filters(id=obj_id)
 
-    async def update(self, obj_id: int, data: dict[str, Any]) -> SupportMessageOrm | None:
+    async def update(
+        self, obj_id: int, data: dict[str, Any]
+    ) -> SupportMessageOrm | None:
         msg = await self.get(obj_id)
         if msg:
             for key, value in data.items():

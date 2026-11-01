@@ -9,6 +9,7 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import func
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -61,8 +62,10 @@ class UserOrm(Base, TableNameMixin):
         Text,
         comment="Основная ссылка подключения",
     )
+    # 01-11-26: JSONB есть только в PostgreSQL — в тестах на SQLite колонка падала
+    # с UnsupportedCompilationError. with_variant даёт JSON на SQLite и JSONB на PG.
     links: Mapped[list | None] = mapped_column(
-        JSONB,
+        JSONB().with_variant(JSON(), "sqlite"),
         default=list,
         server_default="[]",
         comment="Все ссылки по каналам",
@@ -74,7 +77,10 @@ class UserOrm(Base, TableNameMixin):
         Float, default=0.0, server_default="0", comment="Израсходовано, байт"
     )
     expiry_at: Mapped[int] = mapped_column(
-        BigInteger, default=0, server_default="0", comment="Окончание подписки, ms epoch"
+        BigInteger,
+        default=0,
+        server_default="0",
+        comment="Окончание подписки, ms epoch",
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", comment="Подписка активна"
@@ -83,13 +89,19 @@ class UserOrm(Base, TableNameMixin):
         Boolean, default=False, server_default="false", comment="Забанен"
     )
     unsubscribed_at: Mapped[int] = mapped_column(
-        BigInteger, default=0, server_default="0", comment="Когда отключился от канала, ms epoch"
+        BigInteger,
+        default=0,
+        server_default="0",
+        comment="Когда отключился от канала, ms epoch",
     )
     channel_step: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", comment="Шаг выдачи ключа"
     )
     chosen_channel: Mapped[int] = mapped_column(
-        Integer, default=-1, server_default="-1", comment="Подтверждённый канал (-1 = нет)"
+        Integer,
+        default=-1,
+        server_default="-1",
+        comment="Подтверждённый канал (-1 = нет)",
     )
     ban_reason: Mapped[str] = mapped_column(
         Text, default="", server_default="", comment="Причина бана"

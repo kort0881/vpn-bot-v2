@@ -15,10 +15,19 @@ class PaymentOrm(Base, TableNameMixin):
     telegram_id: Mapped[int] = mapped_column(BigInteger, index=True)
     username: Mapped[str] = mapped_column(String(64), default="", server_default="")
     full_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
-    amount: Mapped[int] = mapped_column(Integer, default=0, server_default="0", comment="Сумма, руб.")
+    amount: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", comment="Сумма, руб."
+    )
     method: Mapped[str] = mapped_column(String(32), default="sbp", server_default="sbp")
     status: Mapped[str] = mapped_column(
-        String(16), default="claimed", server_default="claimed", comment="claimed/confirmed/rejected"
+        String(16),
+        default="claimed",
+        server_default="claimed",
+        comment="claimed/confirmed/rejected",
     )
-    created_at: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0", comment="ms epoch")
-    confirmed_at: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0", comment="ms epoch")
+    created_at: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0", comment="ms epoch"
+    )
+    confirmed_at: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0", comment="ms epoch"
+    )

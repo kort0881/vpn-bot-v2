@@ -8,8 +8,6 @@ from ..models import PaymentOrm
 from .base import AbstractRepository
 
 
-
-
 class PaymentRepository(AbstractRepository[PaymentOrm, int]):
     model = PaymentOrm
 

@@ -31,7 +31,9 @@ UNSUB_STRIKES_REQUIRED = 2
 _unsub_strikes: dict[int, int] = {}
 
 
-async def _tick(bot: Bot, access: AccessService, vpn: VpnPanelService, i18n: I18n) -> None:
+async def _tick(
+    bot: Bot, access: AccessService, vpn: VpnPanelService, i18n: I18n
+) -> None:
     users = await access.renewal_users()
     now = int(time.time() * 1000)
     renewed = disabled = 0
@@ -46,7 +48,10 @@ async def _tick(bot: Bot, access: AccessService, vpn: VpnPanelService, i18n: I18
                 if expiry - now < THRESHOLD_MS:
                     new_expiry = max(expiry, now) + EXPIRE_MS
                     ok = await vpn.panel.update_client(
-                        user.email, user.client_uuid, enable=True, expiry_time=new_expiry
+                        user.email,
+                        user.client_uuid,
+                        enable=True,
+                        expiry_time=new_expiry,
                     )
                     if ok:
                         await access.set_expiry(user.user_id, new_expiry)
@@ -60,7 +65,9 @@ async def _tick(bot: Bot, access: AccessService, vpn: VpnPanelService, i18n: I18
                         f"{user.email}: нет подписки ({strikes}/{UNSUB_STRIKES_REQUIRED}), не отключаю"
                     )
                     continue
-                ok = await vpn.panel.update_client(user.email, user.client_uuid, enable=False)
+                ok = await vpn.panel.update_client(
+                    user.email, user.client_uuid, enable=False
+                )
                 if ok:
                     _unsub_strikes.pop(user.user_id, None)
                     await access.mark_unsubscribed(user.user_id)
@@ -69,11 +76,15 @@ async def _tick(bot: Bot, access: AccessService, vpn: VpnPanelService, i18n: I18
                     try:
                         await bot.send_message(
                             user.user_id,
-                            await i18n(user.user_id, "kick-unsubscribed", days=RESUBSCRIBE_BAN_DAYS),
+                            await i18n(
+                                user.user_id,
+                                "kick-unsubscribed",
+                                days=RESUBSCRIBE_BAN_DAYS,
+                            ),
                         )
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         logger.warning(f"kick -> {user.user_id}: {exc}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error(f"продление {getattr(user, 'email', '?')}: {exc}")
 
     if renewed or disabled:
@@ -98,6 +109,6 @@ async def renewal_loop(bot: Bot, container) -> None:
         except asyncio.CancelledError:
             logger.info("цикл продления остановлен")
             raise
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.error(f"цикл продления: {exc}")
         await asyncio.sleep(RENEW_INTERVAL_MINUTES * 60)
