@@ -91,24 +91,18 @@ async def send_key(
         else:
             user, _client = await access.issue_key(user_id, username)
             await access.incr_keys()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.exception(f"send_key {user_id}: {exc}")
         if FALLBACK_SUB_URL:
-            logger.warning(
-                f"send_key {user_id}: панель недоступна, отдаю временную ссылку"
-            )
+            logger.warning(f"send_key {user_id}: панель недоступна, отдаю временную ссылку")
             await message.answer(
-                await i18n(user_id, "fallback-note")
-                + f"\n\n<code>{FALLBACK_SUB_URL}</code>"
+                await i18n(user_id, "fallback-note") + f"\n\n<code>{FALLBACK_SUB_URL}</code>"
             )
             return
         await message.answer(await i18n(user_id, "error", error=str(exc)[:200]))
         return
 
-    await message.answer(
-        await build_keys_text(access, i18n, user),
-        reply_markup=await keys_kb(i18n, user_id),
-    )
+    await message.answer(await build_keys_text(access, i18n, user), reply_markup=await keys_kb(i18n, user_id))
 
 
 @user_keys_router.callback_query(F.data == "get_key")
@@ -125,29 +119,23 @@ async def get_key(
 
 @user_keys_router.callback_query(F.data == "my_key")
 @aiogram_inject
-async def my_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def my_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     await callback.answer()
     user_id = callback.from_user.id
     user = await access.get_user(user_id)
     if not access.has_active_key(user):
         await callback.message.edit_text(
-            await i18n(user_id, "my-key-empty"),
-            reply_markup=await my_key_empty_kb(i18n, user_id),
+            await i18n(user_id, "my-key-empty"), reply_markup=await my_key_empty_kb(i18n, user_id)
         )
         return
     await callback.message.edit_text(
-        await build_keys_text(access, i18n, user),
-        reply_markup=await keys_kb(i18n, user_id),
+        await build_keys_text(access, i18n, user), reply_markup=await keys_kb(i18n, user_id)
     )
 
 
 @user_keys_router.callback_query(F.data == "refresh_key")
 @aiogram_inject
-async def refresh_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def refresh_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     user = await access.get_user(user_id)
     if not access.has_active_key(user):
@@ -160,9 +148,7 @@ async def refresh_key(
 
     if result.get("ok"):
         when = datetime.now().strftime("%H:%M:%S")
-        text = await i18n(
-            user_id, "refresh-ok", time=when, channels=result.get("panel", "RU")
-        )
+        text = await i18n(user_id, "refresh-ok", time=when, channels=result.get("panel", "RU"))
         expiry = int(result.get("expiry") or 0)
         if expiry:
             date = datetime.fromtimestamp(expiry / 1000).strftime("%d.%m.%Y")
@@ -181,8 +167,7 @@ async def copy_sub(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await render(
         callback,
-        await i18n(user_id, "copy-sub-title")
-        + f"\n\n<code>{subscription_url(user_id)}</code>",
+        await i18n(user_id, "copy-sub-title") + f"\n\n<code>{subscription_url(user_id)}</code>",
         await copy_kb(i18n, user_id, back_to="my_key"),
     )
 
@@ -202,9 +187,7 @@ async def copy_happ(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
 
 @user_keys_router.callback_query(F.data == "xhttp_key")
 @aiogram_inject
-async def xhttp_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def xhttp_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await callback.answer(await i18n(user_id, "generation"))
     result = await access.issue_xhttp(user_id)
@@ -243,16 +226,12 @@ async def help_cb(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
         text += "\n" + await i18n(user_id, "help-channel", link=VIP_INVITE_URL)
     text += "\n\n" + await i18n(user_id, "help-short")
     if VIP_POST_URL:
-        text += (
-            "\n\n" + await i18n(user_id, "help-post") + f"\n<code>{VIP_POST_URL}</code>"
-        )
+        text += "\n\n" + await i18n(user_id, "help-post") + f"\n<code>{VIP_POST_URL}</code>"
     text += "\n\n" + await i18n(user_id, "help-warning")
     await render(
         callback,
         text,
-        await help_kb(
-            i18n, user_id, VIP_INVITE_URL, back_to="main_menu", post_url=VIP_POST_URL
-        ),
+        await help_kb(i18n, user_id, VIP_INVITE_URL, back_to="main_menu", post_url=VIP_POST_URL),
     )
 
 
@@ -296,16 +275,12 @@ async def check_sub(
         await callback.answer()
         await send_key(callback.message, user_id, access, i18n, state)
     else:
-        await callback.answer(
-            await i18n(user_id, "subscription-check-failed"), show_alert=True
-        )
+        await callback.answer(await i18n(user_id, "subscription-check-failed"), show_alert=True)
 
 
 @user_keys_router.callback_query(F.data == "sel_key")
 @aiogram_inject
-async def sel_key(
-    callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]
-) -> None:
+async def sel_key(callback: CallbackQuery, access: FromDishka[AccessService], i18n: FromDishka[I18n]) -> None:
     user_id = callback.from_user.id
     await callback.answer(await i18n(user_id, "generation"))
     result = await access.issue_sel(user_id)
@@ -373,19 +348,11 @@ async def send_channel(
         )
     )
     if app_url:
-        text += (
-            "\n\n"
-            + await i18n(user_id, "channel-app-hint")
-            + f"\n<code>{app_url}</code>"
-        )
+        text += "\n\n" + await i18n(user_id, "channel-app-hint") + f"\n<code>{app_url}</code>"
         builder.row(
             InlineKeyboardButton(text=await i18n(user_id, app_btn_key), url=app_url)
         )
-    builder.row(
-        InlineKeyboardButton(
-            text=await i18n(user_id, "back"), callback_data="main_menu"
-        )
-    )
+    builder.row(InlineKeyboardButton(text=await i18n(user_id, "back"), callback_data="main_menu"))
     await render(callback, text, builder.as_markup())
 
 
@@ -435,9 +402,7 @@ async def awg_key(callback: CallbackQuery, i18n: FromDishka[I18n]) -> None:
     )
 
 
-async def message_ok(
-    callback: CallbackQuery, i18n: I18n, user_id: int, title_key: str, link: str
-) -> None:
+async def message_ok(callback: CallbackQuery, i18n: I18n, user_id: int, title_key: str, link: str) -> None:
     await render(
         callback,
         await i18n(user_id, title_key) + f"\n\n<code>{link}</code>",
@@ -449,13 +414,10 @@ async def message_ok(
 async def _panel_alive(access: AccessService) -> tuple[bool, str]:
     """Пинг панели: GET /panel/api/server/status с коротким таймаутом."""
     try:
-        await access.vpn.panel._request("GET", "/panel/api/server/status")
+        await access.vpn.panel._request("GET", "/panel/api/server/status")  # noqa: SLF001
         return True, ""
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return False, f"{type(exc).__name__}: {exc}"
-
-
-_BG_TASKS: set = set()
 
 
 async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
@@ -476,17 +438,17 @@ async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
     last = 0.0
     try:
         last = float(open(guard).read().strip())
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
     now = _time.time()
 
     if admin_id:
+        # 01-11-26: владельцу не шлём — пишем в ops-лог
         try:
-            await bot.send_message(
-                admin_id,
-                f"⚠️ Самопроверка: панель недоступна ({reason[:200]}). user_id={user_id}",
-            )
-        except Exception:
+            with open("/var/log/ops_alerts.log", "a") as _f:
+                _f.write("%s [bot_selfcheck] панель недоступна (%s). user_id=%s\n" % (
+                    _time.strftime("%Y-%m-%d %H:%M:%S"), reason[:200], user_id))
+        except Exception:  # noqa: BLE001
             pass
 
     if now - last < 600:
@@ -494,16 +456,12 @@ async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
 
     try:
         open(guard, "w").write(str(now))
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
 
     async def _do_restart() -> None:
         await asyncio.sleep(3)
         subprocess.run(["systemctl", "restart", "vpn-bot"], check=False)
 
-    _bg = asyncio.create_task(
-        _do_restart()
-    )  # держим ссылку, иначе GC может убить задачу
-    _BG_TASKS.add(_bg)
-    _bg.add_done_callback(_BG_TASKS.discard)
+    asyncio.create_task(_do_restart())
     return "boot-restart"

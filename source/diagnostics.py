@@ -39,23 +39,17 @@ def env_report() -> list[tuple[str, bool, str]]:
     ]
     out: list[tuple[str, bool, str]] = []
     for name, ok, note in checks:
-        out.append(
-            (name, ok, ("задан" if ok else "ПУСТО") + (f" ({note})" if note else ""))
-        )
+        out.append((name, ok, ("задан" if ok else "ПУСТО") + (f" ({note})" if note else "")))
     return out
 
 
-async def http_ok(
-    url: str, headers: dict | None = None, timeout: int = 10
-) -> tuple[bool, str]:
+async def http_ok(url: str, headers: dict | None = None, timeout: int = 10) -> tuple[bool, str]:
     try:
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=timeout)
-        ) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
             async with session.get(url, headers=headers or {}) as resp:
                 body = (await resp.text())[:100].replace("\n", " ")
                 return resp.status < 400, f"HTTP {resp.status} {body}"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return False, f"{type(exc).__name__}: {exc}"
 
 
@@ -64,9 +58,7 @@ async def panel_ok() -> tuple[bool, str]:
     token = PANEL_RU_API_TOKEN or PANEL_API_TOKEN
     if not url:
         return False, "PANEL_URL не задан"
-    return await http_ok(
-        f"{url}/panel/api/server/status", {"Authorization": f"Bearer {token}"}
-    )
+    return await http_ok(f"{url}/panel/api/server/status", {"Authorization": f"Bearer {token}"})
 
 
 async def gateway_ok() -> tuple[bool, str]:
@@ -84,11 +76,14 @@ async def tt_panel_ok() -> tuple[bool, str]:
 async def alert_admins(bot, text: str) -> None:
     from source.config import settings
 
-    for admin_id in settings.tg.admin_ids:
-        try:
-            await bot.send_message(admin_id, text[:4000])
-        except Exception as exc:
-            logger.warning(f"не смог отправить алерт админу {admin_id}: {exc}")
+    # 01-11-26: владельцу не шлём — только ops-лог
+    try:
+        import time as _t
+        with open("/var/log/ops_alerts.log", "a") as _f:
+            _f.write("%s [bot_diag] %s\n" % (_t.strftime("%Y-%m-%d %H:%M:%S"),
+                                             text.replace("\n", " | ")[:1500]))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"ops-лог не записался: {exc}")
 
 
 async def startup_selfcheck(bot) -> None:
@@ -116,12 +111,12 @@ async def startup_selfcheck(bot) -> None:
         last = 0.0
         try:
             last = float(guard.read_text().strip())
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
         if _time.time() - last > 600:
             try:
                 guard.write_text(str(_time.time()))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
             await alert_admins(bot, message)
         raise SystemExit(1)

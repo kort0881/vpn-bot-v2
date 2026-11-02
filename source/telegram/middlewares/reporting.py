@@ -28,9 +28,15 @@ class ErrorReportingMiddleware(BaseMiddleware):
             details = f"Details:\n\n{shortened_traceback}"
             full_message = f"{error_message}\n\n{details}"
 
-            bot: Bot = data["bot"]
-            for admin_id in self.admin_ids:
-                await bot.send_message(admin_id, full_message)
+            # 01-11-26: ошибки хендлеров владельцу в TG не шлём — только ops-лог
+            try:
+                import time as _t
+                with open("/var/log/ops_alerts.log", "a") as _f:
+                    _f.write("%s [bot_error] %s\n" % (
+                        _t.strftime("%Y-%m-%d %H:%M:%S"),
+                        full_message.replace("\n", " | ")[:1500]))
+            except Exception:
+                pass
 
         except Exception as e:
             logger.error(e)

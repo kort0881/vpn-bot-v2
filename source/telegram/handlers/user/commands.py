@@ -55,9 +55,7 @@ async def start(
 
     keys_count = await access.keys_issued()
     text = await i18n(user.id, "start", name=user.first_name or "", keys=keys_count)
-    await message.answer(
-        text, reply_markup=await main_menu_kb(i18n, user.id, DONATE_URL)
-    )
+    await message.answer(text, reply_markup=await main_menu_kb(i18n, user.id, DONATE_URL))
 
 
 @user_commands_router.message(Command("menu"))
@@ -91,9 +89,7 @@ async def help_command(message: Message, i18n: FromDishka[I18n]) -> None:
         text += "\n" + await i18n(user_id, "help-channel", link=VIP_INVITE_URL)
     text += "\n\n" + await i18n(user_id, "help-short")
     text += "\n\n" + await i18n(user_id, "help-warning")
-    await message.answer(
-        text, reply_markup=await help_kb(i18n, user_id, VIP_INVITE_URL)
-    )
+    await message.answer(text, reply_markup=await help_kb(i18n, user_id, VIP_INVITE_URL))
 
 
 @user_commands_router.message(Command("donate"))
@@ -101,6 +97,5 @@ async def help_command(message: Message, i18n: FromDishka[I18n]) -> None:
 async def donate(message: Message, i18n: FromDishka[I18n]) -> None:
     user_id = message.from_user.id
     await message.answer(
-        await i18n(user_id, "donate-title"),
-        reply_markup=await donate_kb(i18n, user_id, DONATE_URL),
+        await i18n(user_id, "donate-title"), reply_markup=await donate_kb(i18n, user_id, DONATE_URL)
     )

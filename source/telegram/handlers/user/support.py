@@ -28,20 +28,8 @@ from source.utils import I18n
 user_support_router = Router(name=__name__)
 
 NOISE = {
-    "/start",
-    "/vpn",
-    "/menu",
-    "/help",
-    "/donate",
-    "привет",
-    "здравствуйте",
-    "спасибо",
-    "ок",
-    "ok",
-    "hello",
-    "hi",
-    "+",
-    "?",
+    "/start", "/vpn", "/menu", "/help", "/donate",
+    "привет", "здравствуйте", "спасибо", "ок", "ok", "hello", "hi", "+", "?",
 }
 
 
@@ -67,9 +55,7 @@ async def handle_captcha(
     answer = (message.text or "").strip()
     if expected and answer == expected:
         await state.clear()
-        await send_key(
-            message, message.from_user.id, access, i18n, state, skip_captcha=True
-        )
+        await send_key(message, message.from_user.id, access, i18n, state, skip_captcha=True)
         return
     await message.answer(await i18n(message.from_user.id, "captcha-wrong"))
 
@@ -104,18 +90,14 @@ async def support_fallback(
             await message.answer(smart)
             logger.info(f"smart_reply -> {user.id}")
             return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning(f"smart_reply упал, отдаю автоответчик: {exc}")
 
     # автоответ на типовой вопрос (0 токенов, локальный матчинг)
     rule = autoreply_match(user.id, text)
     if rule:
         if rule == "howto":
-            await message.answer(
-                await i18n(user.id, "help-title")
-                + "\n\n"
-                + await i18n(user.id, "help-short")
-            )
+            await message.answer(await i18n(user.id, "help-title") + "\n\n" + await i18n(user.id, "help-short"))
         elif rule == "link":
             await message.answer(await i18n(user.id, "autoreply-link"))
         else:
@@ -140,5 +122,5 @@ async def support_fallback(
                 f"от: {html.escape(user.full_name or '')} (@{user.username or '—'}, "
                 f"<code>{user.id}</code>)\n\n{html.escape(text)}",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning(f"support forward -> {admin_id}: {exc}")

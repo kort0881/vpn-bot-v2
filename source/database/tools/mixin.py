@@ -1,3 +1,4 @@
+
 import inflect
 import re
 from sqlalchemy.ext.declarative import declared_attr

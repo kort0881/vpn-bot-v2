@@ -16,9 +16,7 @@ class SupportMessageOrm(Base, TableNameMixin):
     username: Mapped[str | None] = mapped_column(String(64))
     full_name: Mapped[str | None] = mapped_column(String(128))
     text: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[int] = mapped_column(
-        BigInteger, default=0, server_default="0", comment="ms epoch"
-    )
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0", comment="ms epoch")
     status: Mapped[str] = mapped_column(String(16), default="new", server_default="new")
 
 

@@ -27,16 +27,12 @@ async def selfcheck(message: Message, access: FromDishka[AccessService]) -> None
     lines = ["🩺 <b>Самопроверка</b>", ""]
 
     bad_env = [name for name, ok, _ in env_report() if not ok]
-    lines.append(
-        "✅ env: обязательное на месте"
-        if not bad_env
-        else "⚠️ env пусто: " + ", ".join(bad_env)
-    )
+    lines.append("✅ env: обязательное на месте" if not bad_env else "⚠️ env пусто: " + ", ".join(bad_env))
 
     try:
         issued = await access.keys_issued()
         lines.append(f"✅ БД: отвечает (выдано ключей: {issued})")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         lines.append(f"❌ БД: {type(exc).__name__}: {exc}")
 
     ok, detail = await panel_ok()
@@ -50,10 +46,8 @@ async def selfcheck(message: Message, access: FromDishka[AccessService]) -> None
 
     try:
         stamp = float(open("/opt/vpn-bot-v2/.last_restart").read().strip())
-        lines.append(
-            f"ℹ️ авто-перезапуск: {time.strftime('%d.%m %H:%M', time.localtime(stamp))}"
-        )
-    except Exception:
+        lines.append(f"ℹ️ авто-перезапуск: {time.strftime('%d.%m %H:%M', time.localtime(stamp))}")
+    except Exception:  # noqa: BLE001
         lines.append("ℹ️ авто-перезапусков не было")
 
     await message.answer("\n".join(lines))

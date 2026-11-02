@@ -31,7 +31,9 @@ class ThrottlingMiddleware(BaseMiddleware):
             i18n = data.get("i18n")
             if i18n is not None:
                 message = await i18n(user_id, "throttling")
-            if isinstance(event, (CallbackQuery, Message)):
+            if isinstance(event, CallbackQuery):
+                await event.answer(message)
+            elif isinstance(event, Message):
                 await event.answer(message)
             return None
 
