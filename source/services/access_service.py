@@ -86,7 +86,7 @@ class AccessService(BaseService):
             return {"ok": False, "reason": "нет ключа"}
         try:
             result = await self.vpn.refresh_key(user.email)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"refresh_key {user.email}: {exc}")
             return {"ok": False, "reason": f"error: {exc}"}
         expiry = int(result.get("expiry") or 0)

@@ -6,6 +6,7 @@ from sqlalchemy import DateTime
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy import Float
 from sqlalchemy import Integer
+from sqlalchemy import JSON
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import func
@@ -61,8 +62,9 @@ class UserOrm(Base, TableNameMixin):
         Text,
         comment="Основная ссылка подключения",
     )
+    # JSONB есть только в PostgreSQL — на SQLite тесты падали UnsupportedCompilationError
     links: Mapped[list | None] = mapped_column(
-        JSONB,
+        JSONB().with_variant(JSON(), "sqlite"),
         default=list,
         server_default="[]",
         comment="Все ссылки по каналам",

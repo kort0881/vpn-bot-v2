@@ -49,7 +49,7 @@ async def http_ok(url: str, headers: dict | None = None, timeout: int = 10) -> t
             async with session.get(url, headers=headers or {}) as resp:
                 body = (await resp.text())[:100].replace("\n", " ")
                 return resp.status < 400, f"HTTP {resp.status} {body}"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return False, f"{type(exc).__name__}: {exc}"
 
 
@@ -82,7 +82,7 @@ async def alert_admins(bot, text: str) -> None:
         with open("/var/log/ops_alerts.log", "a") as _f:
             _f.write("%s [bot_diag] %s\n" % (_t.strftime("%Y-%m-%d %H:%M:%S"),
                                              text.replace("\n", " | ")[:1500]))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(f"ops-лог не записался: {exc}")
 
 
@@ -111,12 +111,12 @@ async def startup_selfcheck(bot) -> None:
         last = 0.0
         try:
             last = float(guard.read_text().strip())
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         if _time.time() - last > 600:
             try:
                 guard.write_text(str(_time.time()))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             await alert_admins(bot, message)
         raise SystemExit(1)

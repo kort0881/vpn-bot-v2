@@ -112,7 +112,7 @@ async def open_page(callback: CallbackQuery, page: int, access: AccessService, i
     kb = await build_page_kb(page, user_id, i18n)
     try:
         await callback.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
-    except Exception:  # noqa: BLE001 — сообщение не редактируется (старое/с картинкой)
+    except Exception:
         await callback.message.answer(text, reply_markup=kb, disable_web_page_preview=True)
 
 

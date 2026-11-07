@@ -91,7 +91,7 @@ async def send_key(
         else:
             user, _client = await access.issue_key(user_id, username)
             await access.incr_keys()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception(f"send_key {user_id}: {exc}")
         if FALLBACK_SUB_URL:
             logger.warning(f"send_key {user_id}: панель недоступна, отдаю временную ссылку")
@@ -414,9 +414,9 @@ async def message_ok(callback: CallbackQuery, i18n: I18n, user_id: int, title_ke
 async def _panel_alive(access: AccessService) -> tuple[bool, str]:
     """Пинг панели: GET /panel/api/server/status с коротким таймаутом."""
     try:
-        await access.vpn.panel._request("GET", "/panel/api/server/status")  # noqa: SLF001
+        await access.vpn.panel._request("GET", "/panel/api/server/status")
         return True, ""
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return False, f"{type(exc).__name__}: {exc}"
 
 
@@ -438,7 +438,7 @@ async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
     last = 0.0
     try:
         last = float(open(guard).read().strip())
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     now = _time.time()
 
@@ -448,7 +448,7 @@ async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
             with open("/var/log/ops_alerts.log", "a") as _f:
                 _f.write("%s [bot_selfcheck] панель недоступна (%s). user_id=%s\n" % (
                     _time.strftime("%Y-%m-%d %H:%M:%S"), reason[:200], user_id))
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
     if now - last < 600:
@@ -456,12 +456,12 @@ async def _restart_if_allowed(bot, user_id: int, reason: str) -> str:
 
     try:
         open(guard, "w").write(str(now))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     async def _do_restart() -> None:
         await asyncio.sleep(3)
         subprocess.run(["systemctl", "restart", "vpn-bot"], check=False)
 
-    asyncio.create_task(_do_restart())
+    asyncio.create_task(_do_restart())  # noqa: RUF006 — задача живёт до рестарта юнита
     return "boot-restart"

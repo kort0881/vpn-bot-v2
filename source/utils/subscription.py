@@ -25,6 +25,6 @@ async def is_subscribed(bot: Bot, user_id: int, channel_id: str) -> bool:
     except TelegramForbiddenError as exc:
         logger.warning(f"is_subscribed: бот не в канале {channel_id}: {exc}")
         return True
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(f"is_subscribed: ошибка проверки {channel_id}: {exc}")
         return True
