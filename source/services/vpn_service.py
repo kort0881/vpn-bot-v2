@@ -61,33 +61,33 @@ class VpnPanelService(BaseService):
     async def traffic_map(self) -> dict:
         return await self.panel.get_traffic_map()
 
-    async def client_traffic(self, email: str) -> Optional[dict]:
+    async def client_traffic(self, email: str) -> dict | None:
         return await self.panel.get_client_traffic(email)
 
     # ------------------------------------------------------------------ VIP-канал
-    async def issue_vip(self, tg_id: int) -> Optional[dict]:
+    async def issue_vip(self, tg_id: int) -> dict | None:
         return await self.panel.add_vip_client(tg_id)
 
-    async def refresh_vip(self, tg_id: int) -> Optional[str]:
+    async def refresh_vip(self, tg_id: int) -> str | None:
         return await self.panel.refresh_vip_link(tg_id)
 
     async def set_vip_enabled(self, tg_id: int, enable: bool) -> bool:
         return await self.panel.set_vip_enabled(tg_id, enable)
 
-    async def vip_traffic(self, tg_id: int) -> Optional[float]:
+    async def vip_traffic(self, tg_id: int) -> float | None:
         return await self.panel.get_vip_traffic(tg_id)
 
     # ------------------------------------------------------------------ Selectel / TT
-    async def issue_sel(self, tg_id: int) -> Optional[dict]:
+    async def issue_sel(self, tg_id: int) -> dict | None:
         if not SEL_ENABLED:
             return None
         return await self.panel.add_sel_client(tg_id)
 
-    async def issue_cascade(self, tg_id: int, username: str = "") -> Optional[PanelClient]:
+    async def issue_cascade(self, tg_id: int, username: str = "") -> PanelClient | None:
         return await self.panel.add_cascade_client(tg_id, username)
 
     # ------------------------------------------------------------------ XHTTP (self-steal)
-    async def issue_xhttp(self, tg_id: int) -> Optional[dict]:
+    async def issue_xhttp(self, tg_id: int) -> dict | None:
         """Выдать ключ XHTTP через nginx на 443 (канал для белых списков).
 
         Создаёт клиента только в XHTTP-инбаунде и возвращает готовую ссылку.
@@ -103,8 +103,8 @@ class VpnPanelService(BaseService):
 
         # Клиент уже есть — не создаём дубль, отдаём актуальную ссылку.
         try:
-            existing = await self.panel._get_client_uuid(email)  # noqa: SLF001
-        except Exception as exc:  # noqa: BLE001
+            existing = await self.panel._get_client_uuid(email)
+        except Exception as exc:
             logger.warning("XHTTP: не удалось проверить наличие клиента %s: %s", email, exc)
             existing = None
 
@@ -127,15 +127,15 @@ class VpnPanelService(BaseService):
                 "inboundIds": [XHTTP_INBOUND_ID],
             }
             try:
-                await self.panel._request(  # noqa: SLF001 — тонкая обёртка над API панели
+                await self.panel._request(
                     "POST", "/panel/api/clients/add", json=payload
                 )
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.error("XHTTP: не удалось создать клиента %s: %s", email, exc)
                 return None
             try:
-                client_uuid = await self.panel._get_client_uuid(email) or client_uuid  # noqa: SLF001
-            except Exception:  # noqa: BLE001
+                client_uuid = await self.panel._get_client_uuid(email) or client_uuid
+            except Exception:
                 pass
             logger.info("XHTTP: клиент %s создан в инбаунде %s", email, XHTTP_INBOUND_ID)
 

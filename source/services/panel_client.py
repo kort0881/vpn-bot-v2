@@ -82,7 +82,7 @@ class PanelSession:
     """
 
     def __init__(self, base_url: str = None, api_token: str = None, inbound_ids: list = None):
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._base_url = (base_url or PANEL_URL).rstrip("/")
         self._api_token = api_token if api_token is not None else PANEL_API_TOKEN
         self._inbound_ids = inbound_ids if inbound_ids is not None else INBOUND_IDS
@@ -137,9 +137,9 @@ class PanelSession:
                     msg = data.get("msg", "unknown error")
                     raise PanelAPIError(f"API error on {method} {path}: {msg}")
                 return data
-            except (PanelAuthError,) as e:
+            except PanelAuthError:
                 raise  # auth errors are permanent — no retry
-            except (PanelAPIError, aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, PanelAPIError, aiohttp.ClientError) as e:
                 last_err = e
                 if attempt < 2:
                     await asyncio.sleep(1 + attempt)  # 1s, 2s
@@ -229,7 +229,7 @@ class PanelSession:
         return out
 
     # Channel port -> human name shown in the client (user's channel brand)
-    REMARK_NAMES = {
+    REMARK_NAMES = {  # noqa: RUF012 — словарь-константа, не мутируется
         443: "Мобильный",
         2083: "Резервный",
         8443: "Домашний",
@@ -270,7 +270,7 @@ class PanelSession:
             out.append(link)
         return out
 
-    async def _get_client_uuid(self, email: str) -> Optional[str]:
+    async def _get_client_uuid(self, email: str) -> str | None:
         """Panel 3.6.0 may assign its own client id on add, ignoring ours.
         Fetch the real id from the panel so links/auth match."""
         result = await self._request("GET", "/panel/api/inbounds/list")
@@ -505,7 +505,7 @@ class PanelSession:
                 "total": after["totalGB"], "enable": after["enable"],
                 "reason": "ok" if same else "state_changed"}
 
-    async def get_client_traffic(self, email: str) -> Optional[dict]:
+    async def get_client_traffic(self, email: str) -> dict | None:
         try:
             result = await self._request(
                 "GET", f"/panel/api/clients/traffic/{email}"
@@ -555,7 +555,7 @@ class PanelSession:
     # Отдельный инбаунд на финке (порт 2096, WS+TLS, path /bonus-ws).
     # Клиент живёт ТОЛЬКО в этом инбаунде и не пересекается с базовым ключом.
 
-    async def add_vip_client(self, tg_id: int) -> Optional[dict]:
+    async def add_vip_client(self, tg_id: int) -> dict | None:
         """Создать/переиспользовать VIP-клиента. Возвращает {'email','uuid','link'}."""
         client_uuid = str(uuid.uuid4())
         email = f"uv{tg_id}"
@@ -587,11 +587,11 @@ class PanelSession:
         link = self._build_vip_link(real_uuid, email)
         return {"email": email, "uuid": real_uuid, "link": link}
 
-    async def add_vip_client_direct(self, tg_id: int) -> Optional[dict]:
+    async def add_vip_client_direct(self, tg_id: int) -> dict | None:
         """Обёртка: тот же результат, но без обращения к RU-панели."""
         return await self.add_vip_client(tg_id)
 
-    async def refresh_vip_link(self, tg_id: int) -> Optional[str]:
+    async def refresh_vip_link(self, tg_id: int) -> str | None:
         """Пересобрать ссылку VIP-клиента (для повторного показа)."""
         email = f"uv{tg_id}"
         real_uuid = await self._get_client_uuid(email)
@@ -613,7 +613,7 @@ class PanelSession:
             logger.error(f"VIP enable={enable} failed for {email}: {e}")
             return False
 
-    async def get_vip_traffic(self, tg_id: int) -> Optional[float]:
+    async def get_vip_traffic(self, tg_id: int) -> float | None:
         """Трафик VIP-клиента в ГБ (для инфо)."""
         try:
             r = await self._request("GET", f"/panel/api/clients/traffic/insider_{tg_id}")
@@ -623,25 +623,13 @@ class PanelSession:
         except PanelAPIError:
             return None
 
-    async def add_sel_client(self, tg_id: int) -> Optional[dict]:
+    async def add_sel_client(self, tg_id: int) -> dict | None:
         """Создать/переиспользовать клиента канала Selectel 3 ТБ.
         Возвращает {'email','uuid','link'}. Работает на панели Selectel."""
         client_uuid = str(uuid.uuid4())
         email = f"us{tg_id}"
-        payload = {
-            "client": {
-                "email": email,
-                "uuid": client_uuid,
-                "password": client_uuid,
-                "flow": "",
-                "limitIp": LIMIT_IP,
-                "totalGB": SEL_TOTAL_BYTES,
-                "expiryTime": int(time.time() * 1000) + EXPIRE_MS,
-                "enable": True,
-                "tgId": int(tg_id),
-            },
-            "inboundIds": [SEL_INBOUND_ID],
-        }
+        # 07-11-26: прежний payload под прямой вызов панели Selectel не использовался —
+        # выдача идёт через туннель /issue/<tg_id> (см. ниже).
         # Выдача через туннель 127.0.0.1:18090 -> DE -> Selectel /issue/<tg>.
         # Бот на финке не видит Selectel напрямую (ТСПУ), туннель решает это.
         try:
@@ -691,7 +679,7 @@ class PanelSession:
 
     # ========================================================
 
-    async def get_inbound_info(self) -> Optional[dict]:
+    async def get_inbound_info(self) -> dict | None:
         """Get info about the first configured inbound."""
         if not self._inbound_ids:
             return None
@@ -704,7 +692,7 @@ class PanelSession:
             logger.error(f"Error getting inbound info: {e}")
             return None
 
-    async def add_cascade_client(self, tg_id: int, username: str) -> Optional[PanelClient]:
+    async def add_cascade_client(self, tg_id: int, username: str) -> PanelClient | None:
         """
         Create a per-user client on the RU panel (cascade entry) and build
         its links: WS-cascade (default) + REALITY :2086 (yandex-маска, для белых списков).
@@ -829,5 +817,5 @@ async def _note_panel_failure(method: str, path: str, err: Exception) -> None:
     try:
         with open("/var/log/ops_alerts.log", "a") as _f:
             _f.write("%s [bot_panel] %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(f"ops-лог не записался: {exc}")

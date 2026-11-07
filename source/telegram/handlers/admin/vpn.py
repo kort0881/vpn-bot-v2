@@ -49,7 +49,7 @@ async def broadcast(message: Message, command: CommandObject, access: FromDishka
         try:
             await message.bot.send_message(uid, text)
             sent += 1
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             failed += 1
             logger.debug(f"broadcast -> {uid}: {exc}")
     await message.answer(f"📨 Рассылка завершена: доставлено {sent}, ошибок {failed}")

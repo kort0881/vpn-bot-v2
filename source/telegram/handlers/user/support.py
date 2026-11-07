@@ -90,7 +90,7 @@ async def support_fallback(
             await message.answer(smart)
             logger.info(f"smart_reply -> {user.id}")
             return
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(f"smart_reply упал, отдаю автоответчик: {exc}")
 
     # автоответ на типовой вопрос (0 токенов, локальный матчинг)
@@ -122,5 +122,5 @@ async def support_fallback(
                 f"от: {html.escape(user.full_name or '')} (@{user.username or '—'}, "
                 f"<code>{user.id}</code>)\n\n{html.escape(text)}",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(f"support forward -> {admin_id}: {exc}")

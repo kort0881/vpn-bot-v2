@@ -57,7 +57,8 @@ async def set_default_commands(bot: Bot) -> None:
         BotCommand(command="fsm", description="Start fsm"),
     ]
 
-    admin_commands = common_commands + [
+    admin_commands = [
+        *common_commands,
         BotCommand(command="admin", description="Admin command"),
     ]
 

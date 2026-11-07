@@ -185,7 +185,7 @@ def answer(question: str, facts: str = "") -> str | None:
     if not question or len(question) < 2:
         return None
     for provider in _providers():
-        for attempt in (1, 2):
+        for _attempt in (1, 2):
             try:
                 text = provider(question, facts)
             except Exception as e:

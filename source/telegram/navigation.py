@@ -34,5 +34,5 @@ async def render(callback: CallbackQuery, text: str, kb) -> None:
     """Открыть страницу, отредактировав текущее сообщение (без спама в чат)."""
     try:
         await callback.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
-    except Exception:  # noqa: BLE001 — старое сообщение/с картинкой/не изменилось
+    except Exception:
         await callback.message.answer(text, reply_markup=kb, disable_web_page_preview=True)
